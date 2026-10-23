@@ -13,7 +13,9 @@ export type FeedMode =
   | { kind: 'home' }
   | { kind: 'domain'; domain: DomainId }
   | { kind: 'labs' }
-  | { kind: 'drill' };
+  | { kind: 'drill' }
+  /** Specific cards, in order: saved posts, a search result, a reel quiz. */
+  | { kind: 'ids'; ids: string[] };
 
 export interface QueueItem {
   key: string;
@@ -46,6 +48,15 @@ export async function buildQueue(
 ): Promise<QueueItem[]> {
   const nowMs = now.getTime();
   const states = await loadStates(db);
+
+  if (mode.kind === 'ids') {
+    return mode.ids
+      .filter((id) => !exclude.has(id))
+      .map((id) => ALL_CARDS.find((c) => c.id === id))
+      .filter((c): c is Card => !!c)
+      .slice(0, size)
+      .map((c) => item(c, !states.has(c.id)));
+  }
 
   if (mode.kind === 'drill') {
     // Weakest known cards first.

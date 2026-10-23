@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256"><defs><radialGradient id="glow" cx="0.5" cy="0.42" r="0.6"><stop offset="0" stop-color="#1D2550"/><stop offset="1" stop-color="#101426"/></radialGradient></defs><rect width="256" height="256" rx="60" fill="url(#glow)"/><g transform="scale(0.25)"><g transform="translate(512 512) scale(1) translate(-512 -478)">
+    <polygon points="330,531.56 448,600 330,668.44 212,600" fill="#FFE08A" fill-opacity="1"/>
+  <polygon points="212,600 330,668.44 330,792.34 212,723.9" fill="#FFB020" fill-opacity="1"/>
+  <polygon points="448,600 330,668.44 330,792.34 448,723.9" fill="#E08A00" fill-opacity="1"/>
+    <polygon points="512,411.56 630,480 512,548.44 394,480" fill="#FFA3BC" fill-opacity="1"/>
+  <polygon points="394,480 512,548.44 512,672.34 394,603.9" fill="#FF4F79" fill-opacity="1"/>
+  <polygon points="630,480 512,548.44 512,672.34 630,603.9" fill="#D92D5A" fill-opacity="1"/>
+    <polygon points="694,291.56 812,360 694,428.44 576,360" fill="#A9C4FF" fill-opacity="1"/>
+  <polygon points="576,360 694,428.44 694,552.34 576,483.9" fill="#3D7BFF" fill-opacity="1"/>
+  <polygon points="812,360 694,428.44 694,552.34 812,483.9" fill="#2350C8" fill-opacity="1"/>
+    <circle cx="694" cy="190" r="26" fill="#fff"/>
+    <circle cx="790" cy="240" r="14" fill="#fff" opacity="0.8"/>
+    <circle cx="610" cy="215" r="12" fill="#fff" opacity="0.6"/>
+  </g></g></svg>

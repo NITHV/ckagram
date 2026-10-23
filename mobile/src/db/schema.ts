@@ -39,6 +39,36 @@ const MIGRATIONS: string[] = [
     value TEXT NOT NULL
   );
   `,
+  // v2: laptop labs, reels, likes/saves.
+  `
+  CREATE TABLE lab_runs (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    lab_id       TEXT NOT NULL,
+    seconds      INTEGER NOT NULL,
+    completed_at INTEGER NOT NULL,          -- when the lab was solved on the laptop
+    nonce        TEXT NOT NULL UNIQUE,      -- each QR can be claimed once
+    xp           INTEGER NOT NULL,
+    ts           INTEGER NOT NULL,          -- when it was claimed on the phone
+    day          TEXT NOT NULL
+  );
+  CREATE INDEX idx_lab_runs_lab ON lab_runs(lab_id);
+  CREATE INDEX idx_lab_runs_day ON lab_runs(day);
+
+  CREATE TABLE reel_views (
+    reel_id     TEXT PRIMARY KEY NOT NULL,
+    first_seen  INTEGER NOT NULL,
+    last_seen   INTEGER NOT NULL,
+    completions INTEGER NOT NULL DEFAULT 0
+  );
+
+  -- Likes and saves for cards and reels (id like "pod-01" or "reel:pods").
+  CREATE TABLE marks (
+    item_id TEXT NOT NULL,
+    kind    TEXT NOT NULL,                 -- 'like' | 'save'
+    ts      INTEGER NOT NULL,
+    PRIMARY KEY (item_id, kind)
+  );
+  `,
 ];
 
 export async function migrate(db: SQLiteDatabase) {

@@ -1,0 +1,12 @@
+{
+  "name": "ckagram-labs",
+  "private": true,
+  "type": "module",
+  "description": "Laptop labs for CKAgram: real broken Kubernetes clusters on kind.",
+  "bin": {
+    "ckalab": "./ckalab.mjs"
+  },
+  "dependencies": {
+    "qrcode": "^1.5.4"
+  }
+}

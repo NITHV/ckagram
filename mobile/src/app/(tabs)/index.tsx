@@ -1,3 +1,4 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -6,6 +7,7 @@ import type { QueueItem } from '@/engine/feed';
 import { useProgress } from '@/state/progress';
 import { feedSignals, useQueue } from '@/state/useQueue';
 import { CardView } from '@/ui/cards/CardView';
+import { Wordmark } from '@/ui/Brand';
 import { StoriesBar } from '@/ui/StoriesBar';
 import { colors, radius } from '@/ui/theme';
 
@@ -43,8 +45,8 @@ export default function Home() {
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
       <View style={styles.topBar}>
-        <Text style={styles.logo}>CKAgram</Text>
-        <View style={{ flexDirection: 'row', gap: 8 }}>
+        <Wordmark height={30} />
+        <View style={{ flexDirection: 'row', gap: 14, alignItems: 'center' }}>
           {combo >= 3 && (
             <View style={[styles.chip, { borderColor: colors.gold }]}>
               <Text style={[styles.chipText, { color: colors.gold }]}>⚡{combo}</Text>
@@ -53,8 +55,9 @@ export default function Home() {
           <Pressable onPress={() => router.navigate('/profile')} style={[styles.chip, stats?.streakAtRisk && { borderColor: colors.bad }]}>
             <Text style={styles.chipText}>🔥 {stats?.streak ?? 0}</Text>
           </Pressable>
-          <Pressable onPress={() => router.navigate('/profile')} style={styles.chip}>
-            <Text style={styles.chipText}>Lv {stats?.level ?? 1}</Text>
+          <Pressable onPress={() => router.push('/activity')} hitSlop={8}>
+            <Ionicons name="heart-outline" size={27} color={colors.text} />
+            {(stats?.newWins ?? 0) > 0 && <View style={styles.dot} />}
           </Pressable>
         </View>
       </View>
@@ -99,6 +102,9 @@ function CaughtUp({ onRetry }: { onRetry: () => void }) {
       <Pressable style={styles.caughtBtn} onPress={() => router.push('/session/drill')}>
         <Text style={styles.caughtBtnText}>Bonus round: drill weak cards</Text>
       </Pressable>
+      <Pressable style={[styles.caughtBtn, { backgroundColor: colors.surface2 }]} onPress={() => router.navigate('/reels')}>
+        <Text style={styles.caughtBtnText}>▶ Watch Reels</Text>
+      </Pressable>
       <Pressable onPress={onRetry}>
         <Text style={styles.caughtLink}>Check for new reviews</Text>
       </Pressable>
@@ -109,10 +115,10 @@ function CaughtUp({ onRetry }: { onRetry: () => void }) {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 8 },
-  logo: { color: colors.text, fontSize: 26, fontWeight: '800', fontStyle: 'italic', letterSpacing: -0.5 },
+  dot: { position: 'absolute', right: -1, top: 0, width: 9, height: 9, borderRadius: 5, backgroundColor: colors.pink, borderWidth: 1.5, borderColor: colors.bg },
   chip: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 4 },
   chipText: { color: colors.text, fontWeight: '700', fontSize: 13 },
-  sep: { height: 1, backgroundColor: colors.border, marginVertical: 6 },
+  sep: { height: 8 },
   caught: { alignItems: 'center', padding: 28, gap: 10 },
   caughtIcon: { width: 72, height: 72, borderRadius: 36, borderWidth: 2, borderColor: colors.good, alignItems: 'center', justifyContent: 'center' },
   caughtTitle: { color: colors.text, fontSize: 20, fontWeight: '800' },

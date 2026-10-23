@@ -8,6 +8,7 @@ import { DOMAIN_BY_ID, DOMAINS, type DomainId } from '@/content';
 import type { FeedMode } from '@/engine/feed';
 import { haptic } from '@/lib/haptics';
 import { useCelebrate } from '@/state/celebrate';
+import { useMarks } from '@/state/marks';
 import { useProgress } from '@/state/progress';
 import { useQueue } from '@/state/useQueue';
 import { CardView } from '@/ui/cards/CardView';
@@ -15,7 +16,9 @@ import { colors, radius } from '@/ui/theme';
 
 const SESSION_SIZE = 10;
 
-function parseMode(mode: string): { mode: FeedMode; title: string } {
+function parseMode(mode: string, saved: Set<string>): { mode: FeedMode; title: string } {
+  if (mode === 'saved') return { mode: { kind: 'ids', ids: [...saved] }, title: '🔖 Saved' };
+  if (mode.startsWith('card-')) return { mode: { kind: 'ids', ids: [mode.slice(5)] }, title: 'Card' };
   if (mode === 'labs') return { mode: { kind: 'labs' }, title: 'Phone labs' };
   if (mode === 'drill') return { mode: { kind: 'drill' }, title: 'Bonus drill' };
   if (DOMAINS.some((d) => d.id === mode)) {
@@ -27,7 +30,10 @@ function parseMode(mode: string): { mode: FeedMode; title: string } {
 
 export default function Session() {
   const params = useLocalSearchParams<{ mode: string }>();
-  const { mode, title } = useMemo(() => parseMode(params.mode ?? 'due'), [params.mode]);
+  const { saved } = useMarks();
+  // Snapshot saved cards when the session opens so un-saving mid-session doesn't reshuffle it.
+  const [savedAtOpen] = useState(saved);
+  const { mode, title } = useMemo(() => parseMode(params.mode ?? 'due', savedAtOpen), [params.mode, savedAtOpen]);
   const q = useQueue(mode, SESSION_SIZE);
   const [index, setIndex] = useState(0);
   const [answeredHere, setAnsweredHere] = useState(false);
@@ -72,6 +78,8 @@ export default function Session() {
               ? 'No reviews due in this domain and its new cards unlock later in the plan.'
               : mode.kind === 'drill'
                 ? 'Answer a few cards first; drills pick your weakest known cards.'
+                : mode.kind === 'ids'
+                  ? 'Nothing saved yet. Tap the bookmark on any card to keep it here.'
                 : "You're fully caught up. Come back later for due reviews."}
           </Text>
           <Pressable style={styles.primary} onPress={() => router.back()}>

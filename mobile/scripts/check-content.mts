@@ -1,6 +1,6 @@
 // Fails CI when a card is malformed. Run: node scripts/check-content.mts
 // Imports card files directly (Node strips the TypeScript types).
-import { readdirSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { load as parseYaml } from 'js-yaml';
@@ -79,8 +79,24 @@ for (const file of readdirSync(cardsDir).filter((f) => f.endsWith('.ts'))) {
   }
 }
 
+// Reels must quiz with a real card; labs need an implementation in /labs.
+const { REELS } = await import(pathToFileURL(join(here, '..', 'src', 'content', 'reels.ts')).href);
+const reelIds = new Set<string>();
+for (const r of REELS) {
+  if (reelIds.has(r.id)) errors.push(`reel ${r.id}: duplicate id`);
+  reelIds.add(r.id);
+  if (!seen.has(r.quiz)) errors.push(`reel ${r.id}: quiz card "${r.quiz}" does not exist`);
+  if (r.frames.length < 3) errors.push(`reel ${r.id}: needs at least 3 frames`);
+}
+const { LABS } = await import(pathToFileURL(join(here, '..', 'src', 'content', 'labs.ts')).href);
+const defsDir = join(here, '..', '..', 'labs', 'defs');
+const labDefs = readdirSync(defsDir).map((f) => readFileSync(join(defsDir, f), 'utf8')).join('\n');
+for (const l of LABS) {
+  if (!labDefs.includes(`id: '${l.id}'`)) errors.push(`lab ${l.id}: no implementation in labs/defs`);
+}
+
 if (errors.length) {
   console.error(`✗ ${errors.length} problem(s) in ${total} cards:\n- ` + errors.join('\n- '));
   process.exit(1);
 }
-console.log(`✓ ${total} cards OK`);
+console.log(`✓ ${total} cards, ${REELS.length} reels, ${LABS.length} labs OK`);

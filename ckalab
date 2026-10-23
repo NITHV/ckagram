@@ -1,0 +1,5 @@
+#!/usr/bin/env sh
+# CKAgram laptop labs. Usage: ./ckalab help
+DIR="$(cd "$(dirname "$0")" && pwd)"
+[ -d "$DIR/labs/node_modules" ] || npm install --prefix "$DIR/labs" --silent
+exec node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON "$DIR/labs/ckalab.mjs" "$@"

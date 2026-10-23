@@ -1,23 +1,35 @@
 import { Platform } from 'react-native';
 
+// Brand palette from the Level-Up Stack logo: gold → pink → blue on deep navy.
+export const brand = {
+  gold: '#FFB020',
+  goldLight: '#FFE08A',
+  pink: '#FF4F79',
+  pinkLight: '#FFA3BC',
+  blue: '#3D7BFF',
+  blueLight: '#A9C4FF',
+  navy: '#101426',
+};
+
 export const colors = {
-  bg: '#000000',
-  surface: '#121212',
-  surface2: '#1C1C1E',
-  border: '#262626',
-  text: '#F5F5F5',
-  muted: '#A8A8A8',
-  faint: '#6E6E6E',
-  accent: '#0095F6',
+  bg: '#05060B',
+  surface: '#0F1220',
+  surface2: '#181C2F',
+  border: '#22273B',
+  text: '#F4F6FB',
+  muted: '#9AA3B8',
+  faint: '#5E6680',
+  accent: brand.blue,
   good: '#2FD38A',
-  bad: '#FF3B5C',
-  gold: '#FFC83D',
-  terminal: '#0B0F14',
+  bad: '#FF4F5E',
+  gold: brand.gold,
+  pink: brand.pink,
+  terminal: '#0A0E16',
   terminalText: '#C9F7C5',
 };
 
-/** Instagram-style story ring gradient. */
-export const ringGradient = ['#FEDA75', '#FA7E1E', '#D62976', '#962FBF', '#4F5BD5'] as const;
+/** Story ring / highlight gradient: the three logo cubes. */
+export const ringGradient = [brand.gold, brand.pink, brand.blue] as const;
 export const bossGradient = ['#FFE29A', '#FFB020', '#FF6A00'] as const;
 
 export const mono = Platform.select({ android: 'monospace', ios: 'Menlo', default: 'monospace' });

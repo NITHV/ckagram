@@ -1,5 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 import { ALL_CARDS, DOMAINS, type Card, type DomainId } from '@/content';
+import { LABS } from '@/content/labs';
 import { getMeta } from '@/db/schema';
 import { dayKey, daysBetween, previousDayKey, startOfToday } from '@/lib/dates';
 import { DAILY_XP_GOAL, levelForXp, titleForLevel, xpForLevel } from './rewards';
@@ -9,6 +10,10 @@ import type { Card as FsrsCard } from 'ts-fsrs';
 /** New cards introduced per day. Keeps reviews from piling up later. */
 export const NEW_PER_DAY = 20;
 export const DEFAULT_EXAM_DATE = '2027-01-28';
+/** Hands-on labs the plan aims for by exam day; readiness compares against this. */
+export const TARGET_LABS = 40;
+/** The exam is hands-on, so labs carry a quarter of the readiness score. */
+const HANDS_ON_WEIGHT = 0.25;
 
 // Readiness compares against the full curriculum, not just the cards shipped so far,
 // so the score can't hit 100% after one week of content.
@@ -51,7 +56,14 @@ export interface Stats {
   /** Streak exists but nothing correct yet today. */
   streakAtRisk: boolean;
   bestStreak: number;
+  /** Overall: knowledge (cards) blended with hands-on (labs). */
   readiness: number;
+  knowledge: number;
+  handsOn: number;
+  labsDone: number;
+  labBest: Record<string, number>;
+  /** Wins since the Activity tab was last opened. */
+  newWins: number;
   dueTotal: number;
   freshTotal: number;
   learnedTotal: number;
@@ -108,12 +120,22 @@ export async function loadStats(db: SQLiteDatabase, now = new Date()): Promise<S
   const nowMs = now.getTime();
   const states = await loadStates(db);
 
-  const totals = await db.getFirstAsync<{ xp: number | null }>('SELECT SUM(xp) AS xp FROM reviews');
-  const today = await db.getFirstAsync<{ xp: number | null; correct: number | null }>(
-    'SELECT SUM(xp) AS xp, SUM(correct) AS correct FROM reviews WHERE day = ?',
-    dayKey(now)
+  const totals = await db.getFirstAsync<{ xp: number | null }>(
+    'SELECT (SELECT IFNULL(SUM(xp), 0) FROM reviews) + (SELECT IFNULL(SUM(xp), 0) FROM lab_runs) AS xp'
   );
-  const dayRows = await db.getAllAsync<{ day: string }>('SELECT DISTINCT day FROM reviews WHERE correct = 1');
+  const today = await db.getFirstAsync<{ xp: number | null; correct: number | null }>(
+    `SELECT (SELECT IFNULL(SUM(xp), 0) FROM reviews WHERE day = $d) + (SELECT IFNULL(SUM(xp), 0) FROM lab_runs WHERE day = $d) AS xp,
+            (SELECT IFNULL(SUM(correct), 0) FROM reviews WHERE day = $d) + (SELECT COUNT(*) FROM lab_runs WHERE day = $d) AS correct`,
+    { $d: dayKey(now) }
+  );
+  // A day counts for the streak if you got a card right or cleared a lab.
+  const dayRows = await db.getAllAsync<{ day: string }>(
+    'SELECT DISTINCT day FROM reviews WHERE correct = 1 UNION SELECT DISTINCT day FROM lab_runs'
+  );
+  const labRows = await db.getAllAsync<{ lab_id: string; best: number }>('SELECT lab_id, MIN(seconds) AS best FROM lab_runs GROUP BY lab_id');
+  const labBest = Object.fromEntries(labRows.map((r) => [r.lab_id, r.best]));
+  const lastSeenWins = Number((await getMeta(db, 'wins_seen_at')) ?? 0);
+  const newWinsRow = await db.getFirstAsync<{ n: number }>('SELECT COUNT(*) AS n FROM wins WHERE ts > ?', lastSeenWins);
   const startDate = Number((await getMeta(db, 'start_date')) ?? nowMs);
   const examDate = (await getMeta(db, 'exam_date')) ?? DEFAULT_EXAM_DATE;
 
@@ -158,12 +180,14 @@ export async function loadStats(db: SQLiteDatabase, now = new Date()): Promise<S
     topicMap.set(key, t);
   }
 
-  let weighted = 0;
+  let knowledge = 0;
   for (const dom of DOMAINS) {
     const d = domains[dom.id];
     d.mastery = readySum[dom.id] / Math.max(TARGET_CARDS[dom.id], d.total);
-    weighted += dom.weight * d.mastery;
+    knowledge += dom.weight * d.mastery;
   }
+  const labsDone = labRows.filter((r) => LABS.some((l) => l.id === r.lab_id)).length;
+  const handsOn = Math.min(1, labsDone / TARGET_LABS);
   const topics = [...topicMap.values()].map((t) => ({ ...t, mastery: t.mastery / t.total }));
 
   return {
@@ -177,7 +201,12 @@ export async function loadStats(db: SQLiteDatabase, now = new Date()): Promise<S
     streak,
     streakAtRisk: streak > 0 && !(today?.correct ?? 0),
     bestStreak: best,
-    readiness: weighted,
+    readiness: knowledge * (1 - HANDS_ON_WEIGHT) + handsOn * HANDS_ON_WEIGHT,
+    knowledge,
+    handsOn,
+    labsDone,
+    labBest,
+    newWins: newWinsRow?.n ?? 0,
     dueTotal: DOMAINS.reduce((n, d) => n + domains[d.id].due, 0),
     freshTotal: DOMAINS.reduce((n, d) => n + domains[d.id].fresh, 0),
     learnedTotal: states.size,

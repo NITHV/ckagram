@@ -1,0 +1,14 @@
+# Exam-like cluster: one control plane, two workers.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: ckagram
+# Docker Desktop on WSL2 can still run cgroup v1, which new kubelets refuse by default.
+# Allow it for this practice cluster only.
+kubeadmConfigPatches:
+  - |
+    kind: KubeletConfiguration
+    failCgroupV1: false
+nodes:
+  - role: control-plane
+  - role: worker
+  - role: worker

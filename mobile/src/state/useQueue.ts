@@ -1,6 +1,7 @@
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { buildQueue, type FeedMode, type QueueItem } from '@/engine/feed';
+import type { AnswerResult } from '@/engine/record';
 import { useProgress } from './progress';
 
 /** Set when a focus session answers cards, so the home feed knows to rebuild. */
@@ -53,8 +54,8 @@ export function useQueue(mode: FeedMode, batch = 15) {
   }, [reset]);
 
   const onAnswer = useCallback(
-    (item: QueueItem, correct: boolean, ms: number) => {
-      if (answered.current.has(item.key)) return;
+    (item: QueueItem, correct: boolean, ms: number): Promise<AnswerResult | null> => {
+      if (answered.current.has(item.key)) return Promise.resolve(null);
       answered.current.add(item.key);
       if (JSON.parse(modeKey).kind !== 'home') feedSignals.dirty = true;
       comboRef.current = correct ? comboRef.current + 1 : 0;
@@ -62,9 +63,12 @@ export function useQueue(mode: FeedMode, batch = 15) {
       setAnsweredCount((n) => n + 1);
       if (correct) setCorrectCount((n) => n + 1);
       setBestCombo((b) => Math.max(b, comboRef.current));
-      lastWrite.current = answer(item, correct, ms, comboRef.current)
-        .then((r) => setSessionXp((x) => x + r.xp.total))
-        .catch(() => {});
+      const result = answer(item, correct, ms, comboRef.current).then((r) => {
+        setSessionXp((x) => x + r.xp.total);
+        return r;
+      });
+      lastWrite.current = result.catch(() => {});
+      return result.catch(() => null);
     },
     [answer, modeKey]
   );

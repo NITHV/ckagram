@@ -22,8 +22,8 @@ export default function TabsLayout() {
         headerShown: false,
         tabBarShowLabel: false,
         tabBarActiveTintColor: colors.text,
-        tabBarInactiveTintColor: colors.text,
-        tabBarStyle: { backgroundColor: colors.bg, borderTopColor: colors.border },
+        tabBarInactiveTintColor: colors.muted,
+        tabBarStyle: { backgroundColor: colors.bg, borderTopColor: colors.border, height: 58 },
         sceneStyle: { backgroundColor: colors.bg },
       }}
     >
@@ -33,12 +33,12 @@ export default function TabsLayout() {
           title: 'Home',
           tabBarIcon: icon('home', 'home-outline'),
           tabBarBadge: due > 0 ? due : undefined,
-          tabBarBadgeStyle: { backgroundColor: colors.bad, fontSize: 10 },
+          tabBarBadgeStyle: { backgroundColor: colors.pink, fontSize: 10 },
         }}
       />
       <Tabs.Screen name="explore" options={{ title: 'Explore', tabBarIcon: icon('search', 'search-outline') }} />
-      <Tabs.Screen name="lab" options={{ title: 'Lab', tabBarIcon: icon('add-circle', 'add-circle-outline', 30) }} />
-      <Tabs.Screen name="activity" options={{ title: 'Activity', tabBarIcon: icon('heart', 'heart-outline') }} />
+      <Tabs.Screen name="lab" options={{ title: 'Lab', tabBarIcon: icon('terminal', 'terminal-outline', 28) }} />
+      <Tabs.Screen name="reels" options={{ title: 'Reels', tabBarIcon: icon('play-circle', 'play-circle-outline', 29) }} />
       <Tabs.Screen name="profile" options={{ title: 'Profile', tabBarIcon: icon('person-circle', 'person-circle-outline', 29) }} />
     </Tabs>
   );

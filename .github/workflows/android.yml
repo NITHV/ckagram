@@ -3,7 +3,7 @@ name: Android APK
 on:
   push:
     branches: [main]
-    paths: ['mobile/**', '.github/workflows/android.yml']
+    paths: ['mobile/**', 'labs/defs/**', '.github/workflows/android.yml']
   workflow_dispatch:
 
 permissions:
@@ -46,6 +46,9 @@ jobs:
 
       - name: Check card content
         run: node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-content.mts
+
+      - name: Engine tests
+        run: npm run test:engine
 
       - name: Generate native project
         run: npx expo prebuild --platform android --no-install

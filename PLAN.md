@@ -46,15 +46,25 @@ system design.
 
 Daily hour: ~15 min reviews/feed (spread out), ~30 min labs, ~15 min new material.
 
-## Architecture (draft — see open decisions)
+## Architecture
 
-- **App:** React Native (Expo) + TypeScript, built to APK by GitHub Actions
+- **App:** React Native (Expo SDK 58) + TypeScript, built to a signed APK by GitHub Actions and published as a GitHub Release
 - **Data:** local-first SQLite on the phone; works offline
-- **Content:** cards/labs as versioned JSON in this repo, verified against a live cluster
-- **Laptop labs:** `kind` clusters + validator scripts on the PC
-- **Later phases (system design lessons):** sync backend, event queue, caching, observability — deployed to Kubernetes as CKA practice
+- **Content:** cards, reels and the lab catalog are typed data in the repo, validated in CI
+- **Reels:** animated frame sequences (hook, statement, typing terminal, flow, list, versus) with device text-to-speech narration, ending in a quiz card
+- **Laptop labs:** `ckalab` runner + kind cluster (1 control plane, 2 workers). Each lab breaks something, checks real cluster state, and prints a signed QR code; the app verifies it and awards XP (one claim per code)
+- **Readiness:** 75% knowledge (cards you'd remember 3+ weeks, weighted by exam domain) + 25% hands-on (labs cleared vs. a 40-lab target)
+- **CI:** content checks, typecheck, engine simulation test, APK build; a separate workflow plays every lab end-to-end on kind
+- **Later phases (system design lessons):** sync backend, event queue, caching, observability, deployed to Kubernetes as CKA practice
 
-## Open decisions
+## Status
 
-1. How laptop lab wins reach the phone (completion code, GitHub-based sync, or a small backend)
-2. App distribution: APK from GitHub Releases (sideload) vs. Play Store internal track
+- [x] Phase 1: feed, stories, XP, streaks, levels, spaced repetition, APK pipeline
+- [x] Phase 2: laptop labs + QR claims, Reels, logo and icon, UI redesign (Instagram-style posts, profile, search)
+- [ ] Phase 3: more content (networking, storage, cluster architecture), timed mock exam mode, more labs
+
+## Decisions made
+
+1. Laptop-lab wins reach the phone through a signed QR code (no server).
+2. APK distributed through GitHub Releases (sideload).
+3. Logo: "Level-Up Stack", an original design generated from code.

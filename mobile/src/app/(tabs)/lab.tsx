@@ -1,50 +1,136 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
+import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import Animated, { FadeIn } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ALL_CARDS } from '@/content';
+import { ALL_CARDS, DOMAIN_BY_ID } from '@/content';
+import { LABS } from '@/content/labs';
 import { haptic } from '@/lib/haptics';
-import { colors, mono, radius } from '@/ui/theme';
+import { useProgress } from '@/state/progress';
+import { brand, colors, mono, radius } from '@/ui/theme';
+
+const fmt = (s: number) => `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, '0')}s`;
 
 export default function Lab() {
-  const cmd = ALL_CARDS.filter((c) => c.type === 'cmd').length;
-  const yaml = ALL_CARDS.filter((c) => c.type === 'yaml').length;
+  const { stats } = useProgress();
+  const [open, setOpen] = useState<string | null>(null);
+  const [showSetup, setShowSetup] = useState(false);
+  const best = stats?.labBest ?? {};
+  const unlocked = stats?.unlockedWeek ?? 1;
+  const miniLabs = ALL_CARDS.filter((c) => c.type === 'cmd' || c.type === 'yaml').length;
+  const done = LABS.filter((l) => best[l.id] !== undefined).length;
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
       <ScrollView contentContainerStyle={{ padding: 14, gap: 16, paddingBottom: 40 }}>
-        <Text style={styles.h1}>Lab</Text>
+        <View style={styles.headerRow}>
+          <Text style={styles.h1}>Lab</Text>
+          <Text style={styles.count}>
+            {done}/{LABS.length} cleared
+          </Text>
+        </View>
 
-        <View style={styles.hero}>
+        <Pressable
+          onPress={() => {
+            haptic.tap();
+            router.push('/scan');
+          }}
+        >
+          <LinearGradient colors={[brand.gold, brand.pink, brand.blue]} start={{ x: 0, y: 1 }} end={{ x: 1, y: 0 }} style={styles.scan}>
+            <Ionicons name="qr-code" size={34} color="#fff" />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.scanTitle}>Scan to claim</Text>
+              <Text style={styles.scanSub}>Cleared a lab on your laptop? Scan its QR code for XP.</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={22} color="#fff" />
+          </LinearGradient>
+        </Pressable>
+
+        <Text style={styles.h2}>💻 Laptop labs</Text>
+        <View style={styles.list}>
+          {LABS.map((l) => {
+            const d = DOMAIN_BY_ID[l.domain];
+            const cleared = best[l.id] !== undefined;
+            const ahead = l.week > unlocked + 1;
+            const isOpen = open === l.id;
+            return (
+              <Pressable
+                key={l.id}
+                onPress={() => {
+                  haptic.tap();
+                  setOpen(isOpen ? null : l.id);
+                }}
+                style={[styles.lab, ahead && { opacity: 0.5 }]}
+              >
+                <View style={styles.labRow}>
+                  <View style={[styles.labIcon, { backgroundColor: d.color + '26', borderColor: cleared ? colors.good : d.color + '66' }]}>
+                    <Text style={{ fontSize: 18 }}>{cleared ? '✅' : l.boss ? '👑' : d.emoji}</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.labTitle}>{l.title}</Text>
+                    <Text style={styles.labMeta}>
+                      Week {l.week} · {d.short} · +{l.xp} XP
+                    </Text>
+                  </View>
+                  <Text style={[styles.labTime, cleared && { color: colors.good }]}>{cleared ? fmt(best[l.id]) : `${l.minutes}m`}</Text>
+                </View>
+                {isOpen && (
+                  <Animated.View entering={FadeIn.duration(180)} style={styles.labMore}>
+                    <Text style={styles.labSummary}>{l.summary}</Text>
+                    <View style={styles.cmd}>
+                      <Text style={styles.cmdText}>.\ckalab start {l.id}</Text>
+                    </View>
+                    <Text style={styles.labHint}>Run it in the CKAgram folder on your laptop, fix it, then `ckalab check`.</Text>
+                  </Animated.View>
+                )}
+              </Pressable>
+            );
+          })}
+        </View>
+
+        <Pressable onPress={() => setShowSetup((s) => !s)} style={styles.setupHead}>
+          <Text style={styles.h3}>First time on the laptop?</Text>
+          <Ionicons name={showSetup ? 'chevron-up' : 'chevron-down'} size={18} color={colors.muted} />
+        </Pressable>
+        {showSetup && (
+          <View style={styles.setup}>
+            {[
+              ['Install Docker Desktop and start it', null],
+              ['Install kind', 'winget install Kubernetes.kind'],
+              ['Create the practice cluster (once)', '.\\ckalab up'],
+              ['Pick a lab', '.\\ckalab list'],
+              ['Start, fix, verify', '.\\ckalab start first-deploy\n.\\ckalab check'],
+            ].map(([step, cmd], i) => (
+              <View key={i} style={{ gap: 6 }}>
+                <Text style={styles.step}>
+                  {i + 1}. {step}
+                </Text>
+                {cmd && (
+                  <View style={styles.cmd}>
+                    <Text style={styles.cmdText}>{cmd}</Text>
+                  </View>
+                )}
+              </View>
+            ))}
+          </View>
+        )}
+
+        <Text style={styles.h2}>📱 Phone mini-labs</Text>
+        <Pressable
+          style={styles.mini}
+          onPress={() => {
+            haptic.tap();
+            router.push('/session/labs');
+          }}
+        >
           <Text style={styles.term}>$ kubectl get skills</Text>
-          <Text style={styles.heroTitle}>Phone mini-labs</Text>
-          <Text style={styles.heroText}>
-            {cmd} kubectl builders and {yaml} broken manifests. Fast answers earn 1.5× XP because the exam is a race.
-          </Text>
-          <Pressable
-            style={styles.primary}
-            onPress={() => {
-              haptic.tap();
-              router.push('/session/labs');
-            }}
-          >
-            <Text style={styles.primaryText}>Start a lab round ⏎</Text>
-          </Pressable>
-        </View>
-
-        <View style={styles.soon}>
-          <Text style={styles.soonTag}>COMING · WEEK 3</Text>
-          <Text style={styles.soonTitle}>💻 Laptop labs</Text>
-          <Text style={styles.soonText}>
-            Real broken clusters on your PC (kind). Fix it, the checker verifies the cluster state, then scan the QR code it shows to claim your XP here.
-          </Text>
-        </View>
-
-        <View style={styles.tip}>
-          <Text style={styles.tipTitle}>Exam tip</Text>
-          <Text style={styles.tipText}>
-            The real exam is about 2 hours of hands-on tasks in a terminal. Phone labs build recall; the laptop labs build speed. You need both.
-          </Text>
-        </View>
+          <Text style={styles.miniText}>{miniLabs} kubectl builders and broken manifests. Fast answers earn 1.5× XP.</Text>
+          <View style={styles.primary}>
+            <Text style={styles.primaryText}>Start a round</Text>
+          </View>
+        </Pressable>
       </ScrollView>
     </SafeAreaView>
   );
@@ -52,18 +138,32 @@ export default function Lab() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
-  h1: { color: colors.text, fontSize: 26, fontWeight: '800' },
-  hero: { backgroundColor: colors.terminal, borderRadius: radius.lg, padding: 18, gap: 10, borderWidth: 1, borderColor: '#1F3326' },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
+  h1: { color: colors.text, fontSize: 28, fontWeight: '900' },
+  count: { color: colors.muted, fontWeight: '700' },
+  h2: { color: colors.text, fontSize: 18, fontWeight: '800', marginTop: 4 },
+  h3: { color: colors.text, fontSize: 15, fontWeight: '800' },
+  scan: { flexDirection: 'row', alignItems: 'center', gap: 14, borderRadius: radius.lg, padding: 18 },
+  scanTitle: { color: '#fff', fontSize: 19, fontWeight: '900' },
+  scanSub: { color: '#FFFFFFDD', fontSize: 13, marginTop: 2 },
+  list: { gap: 8 },
+  lab: { backgroundColor: colors.surface, borderRadius: radius.md, padding: 12, borderWidth: 1, borderColor: colors.border },
+  labRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  labIcon: { width: 42, height: 42, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5 },
+  labTitle: { color: colors.text, fontWeight: '800', fontSize: 15 },
+  labMeta: { color: colors.muted, fontSize: 12, marginTop: 2 },
+  labTime: { color: colors.muted, fontWeight: '800', fontSize: 13 },
+  labMore: { marginTop: 10, gap: 8 },
+  labSummary: { color: '#D9DEEA', lineHeight: 20 },
+  labHint: { color: colors.faint, fontSize: 12 },
+  cmd: { backgroundColor: colors.terminal, borderRadius: radius.sm, padding: 10, borderWidth: 1, borderColor: '#1F3326' },
+  cmdText: { color: colors.terminalText, fontFamily: mono, fontSize: 13 },
+  setupHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  setup: { backgroundColor: colors.surface, borderRadius: radius.md, padding: 14, gap: 12 },
+  step: { color: colors.text, fontWeight: '700' },
+  mini: { backgroundColor: colors.terminal, borderRadius: radius.lg, padding: 18, gap: 8, borderWidth: 1, borderColor: '#1F3326' },
   term: { color: colors.good, fontFamily: mono, fontSize: 13 },
-  heroTitle: { color: colors.text, fontSize: 22, fontWeight: '800' },
-  heroText: { color: colors.muted, lineHeight: 20 },
-  primary: { backgroundColor: colors.accent, borderRadius: radius.md, paddingVertical: 14, alignItems: 'center', marginTop: 4 },
-  primaryText: { color: '#fff', fontWeight: '800', fontSize: 16 },
-  soon: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: 18, gap: 8, borderWidth: 1, borderColor: colors.border, borderStyle: 'dashed' },
-  soonTag: { color: colors.gold, fontWeight: '800', fontSize: 11, letterSpacing: 1 },
-  soonTitle: { color: colors.text, fontSize: 18, fontWeight: '800' },
-  soonText: { color: colors.muted, lineHeight: 20 },
-  tip: { padding: 4, gap: 4 },
-  tipTitle: { color: colors.text, fontWeight: '800' },
-  tipText: { color: colors.muted, lineHeight: 20 },
+  miniText: { color: colors.muted, lineHeight: 20 },
+  primary: { backgroundColor: colors.accent, borderRadius: radius.md, paddingVertical: 12, alignItems: 'center', marginTop: 4 },
+  primaryText: { color: '#fff', fontWeight: '800', fontSize: 15 },
 });

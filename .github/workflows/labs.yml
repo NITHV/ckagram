@@ -1,0 +1,26 @@
+name: Laptop labs
+
+# Plays every lab end-to-end on a real kind cluster:
+# setup -> checks must fail -> apply the solution -> checks must pass.
+on:
+  push:
+    branches: [main]
+    paths: ['labs/**', '.github/workflows/labs.yml']
+  workflow_dispatch:
+
+jobs:
+  labs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: helm/kind-action@v1
+        with:
+          cluster_name: ckagram
+          config: labs/kind-config.yaml
+          wait: 180s
+      - name: Play all labs
+        run: node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON labs/test-labs.mjs
