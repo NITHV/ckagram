@@ -10,6 +10,18 @@ system design.
 - **Laptop/PC:** extensive hands-on labs and timed mock exams on local `kind` clusters
 - **CI/CD:** GitHub Actions builds the APK — nothing built on the PC
 
+## Goals
+
+| | Goal | How we measure it |
+|---|---|---|
+| **Speed** | Pass the CKA by Jan 31, 2027 (~14 weeks, 1 hr/day, no catch-up days). In the app: a first win within 60 seconds of opening it. | Weeks on schedule, daily streak, mock scores above 66% by week 12 |
+| **Altitude** | Become an absolute pro: a brilliant platform engineer and system design architect. The CKA is the first checkpoint, not the finish line. | The app is still useful after the exam |
+| **Depth** | Fix a broken cluster from first principles, without hints, and explain why the fix works. Building CKAgram itself (CI/CD, signing, the sync backend) is the system-design side. | Laptop mocks passed with no hints, boss labs cleared, able to explain each part of CKAgram's design |
+| **Range** | Now: all five CKA domains, on phone and laptop, online or offline. After the exam: CKAD/CKS, a managed cloud (EKS/GKE), GitOps, observability, Terraform, system design patterns. | Domains or tracks above 80% |
+
+**Tension to watch:** Altitude is bigger than the CKA. Speed keeps Range in check, so Range
+stays on the CKA until the exam is passed, then widens.
+
 ## Core loop
 
 | Instagram | CKAgram |
