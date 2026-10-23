@@ -36,9 +36,11 @@ interface Props {
   isNew: boolean;
   onAnswer: (correct: boolean, ms: number) => Promise<AnswerResult | null> | void;
   onNext?: () => void;
+  /** Mock exam: no feedback, no XP, no social actions. Concepts show only their question. */
+  exam?: boolean;
 }
 
-export function CardView({ card, active, isNew, onAnswer, onNext }: Props) {
+export function CardView({ card, active, isNew, onAnswer, onNext, exam }: Props) {
   const startedAt = useRef<number | null>(null);
   const [answered, setAnswered] = useState<boolean | null>(null);
   const [earned, setEarned] = useState<AnswerResult['xp'] | null>(null);
@@ -53,14 +55,14 @@ export function CardView({ card, active, isNew, onAnswer, onNext }: Props) {
   const likeStyle = useAnimatedStyle(() => ({ transform: [{ scale: likeScale.value }] }));
 
   useEffect(() => {
-    if (active && startedAt.current === null && card.type !== 'concept') startedAt.current = Date.now();
-  }, [active, card.type]);
+    if (active && startedAt.current === null && (exam || card.type !== 'concept')) startedAt.current = Date.now();
+  }, [active, card.type, exam]);
 
   const answer = (correct: boolean) => {
     if (answered !== null) return;
     const ms = Date.now() - (startedAt.current ?? Date.now());
     setAnswered(correct);
-    if (!correct) shake.value = withSequence(withTiming(-10, { duration: 50 }), withTiming(10, { duration: 50 }), withTiming(-6, { duration: 50 }), withTiming(0, { duration: 50 }));
+    if (!correct && !exam) shake.value = withSequence(withTiming(-10, { duration: 50 }), withTiming(10, { duration: 50 }), withTiming(-6, { duration: 50 }), withTiming(0, { duration: 50 }));
     Promise.resolve(onAnswer(correct, ms)).then((r) => r && setEarned(r.xp));
   };
 
@@ -91,18 +93,28 @@ export function CardView({ card, active, isNew, onAnswer, onNext }: Props) {
             {domain.short} · {TYPE_LABEL[card.type]}
           </Text>
         </View>
-        {card.boss && <Text style={styles.bossTag}>👑 BOSS</Text>}
-        {!card.boss && isNew && <Text style={styles.newTag}>NEW</Text>}
+        {!exam && card.boss && <Text style={styles.bossTag}>👑 BOSS</Text>}
+        {!exam && !card.boss && isNew && <Text style={styles.newTag}>NEW</Text>}
       </View>
 
       <Animated.View style={[styles.body, shakeStyle]}>
-        {card.type === 'concept' && <ConceptBlock card={card} onReveal={() => (startedAt.current = Date.now())} onAnswer={answer} onLike={() => !isLiked && like()} />}
-        {card.type === 'mcq' && <QuestionBlock question={card} onAnswer={answer} />}
-        {card.type === 'cmd' && <CmdBlock card={card} onAnswer={answer} />}
-        {card.type === 'yaml' && <YamlBlock card={card} onAnswer={answer} />}
+        {exam && card.type === 'concept' && <QuestionBlock question={card.check} onAnswer={answer} blind />}
+        {!exam && card.type === 'concept' && <ConceptBlock card={card} onReveal={() => (startedAt.current = Date.now())} onAnswer={answer} onLike={() => !isLiked && like()} />}
+        {card.type === 'mcq' && <QuestionBlock question={card} onAnswer={answer} blind={exam} />}
+        {card.type === 'cmd' && <CmdBlock card={card} onAnswer={answer} blind={exam} />}
+        {card.type === 'yaml' && <YamlBlock card={card} onAnswer={answer} blind={exam} />}
       </Animated.View>
 
-      <View style={styles.actions}>
+      {exam && answered !== null && onNext && (
+        <Animated.View entering={FadeIn.duration(200)} style={{ paddingHorizontal: 14 }}>
+          <Pressable onPress={onNext} style={styles.next}>
+            <Text style={styles.nextText}>Next question</Text>
+            <Ionicons name="chevron-forward" size={16} color={colors.text} />
+          </Pressable>
+        </Animated.View>
+      )}
+
+      {!exam && <View style={styles.actions}>
         <Pressable onPress={like} hitSlop={8}>
           <Animated.View style={likeStyle}>
             <Ionicons name={isLiked ? 'heart' : 'heart-outline'} size={27} color={isLiked ? colors.pink : colors.text} />
@@ -118,9 +130,9 @@ export function CardView({ card, active, isNew, onAnswer, onNext }: Props) {
         <Pressable onPress={() => toggle(card.id, 'save')} hitSlop={8}>
           <Ionicons name={isSaved ? 'bookmark' : 'bookmark-outline'} size={24} color={isSaved ? colors.gold : colors.text} />
         </Pressable>
-      </View>
+      </View>}
 
-      {answered !== null && (
+      {!exam && answered !== null && (
         <Animated.View entering={FadeIn.duration(250)} style={styles.explain}>
           <Text style={styles.xpLine}>
             {answered ? (
@@ -155,7 +167,7 @@ export function CardView({ card, active, isNew, onAnswer, onNext }: Props) {
     </View>
   );
 
-  if (!card.boss) return post;
+  if (!card.boss || exam) return post;
   return (
     <LinearGradient colors={bossGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.bossFrame}>
       {post}

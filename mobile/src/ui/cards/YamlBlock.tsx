@@ -6,7 +6,7 @@ import { haptic } from '@/lib/haptics';
 import { RichText } from '../RichText';
 import { colors, mono, radius } from '../theme';
 
-export function YamlBlock({ card, onAnswer }: { card: YamlCard; onAnswer: (correct: boolean) => void }) {
+export function YamlBlock({ card, onAnswer, blind }: { card: YamlCard; onAnswer: (correct: boolean) => void; blind?: boolean }) {
   const lines = card.yaml.split('\n');
   const [picked, setPicked] = useState<number | null>(null);
   const done = picked !== null;
@@ -26,7 +26,8 @@ export function YamlBlock({ card, onAnswer }: { card: YamlCard; onAnswer: (corre
           <View>
             {lines.map((line, i) => {
               const isBug = i === card.bugLine;
-              const wrongPick = done && i === picked && !isBug;
+              const reveal = done && !blind;
+              const wrongPick = reveal && i === picked && !isBug;
               return (
                 <View key={i}>
                   <Pressable
@@ -34,14 +35,15 @@ export function YamlBlock({ card, onAnswer }: { card: YamlCard; onAnswer: (corre
                     style={({ pressed }) => [
                       styles.line,
                       pressed && !done && { backgroundColor: '#1A2330' },
-                      done && isBug && styles.bugLine,
+                      reveal && isBug && styles.bugLine,
                       wrongPick && styles.wrongLine,
+                      done && blind && i === picked && styles.pickedLine,
                     ]}
                   >
                     <Text style={styles.num}>{i + 1}</Text>
-                    <Text style={[styles.text, done && isBug && styles.struck]}>{line || ' '}</Text>
+                    <Text style={[styles.text, reveal && isBug && styles.struck]}>{line || ' '}</Text>
                   </Pressable>
-                  {done && isBug && (
+                  {reveal && isBug && (
                     <View style={[styles.line, styles.fixLine]}>
                       <Text style={[styles.num, { color: colors.good }]}>+</Text>
                       <Text style={[styles.text, { color: colors.good }]}>{card.fixLine}</Text>
@@ -66,6 +68,7 @@ const styles = StyleSheet.create({
   text: { color: '#D6E2F0', fontFamily: mono, fontSize: 13.5 },
   bugLine: { backgroundColor: '#3A1219' },
   wrongLine: { backgroundColor: '#2A2A2A' },
+  pickedLine: { backgroundColor: '#14254A' },
   fixLine: { backgroundColor: '#0F2A1E' },
   struck: { color: colors.bad, textDecorationLine: 'line-through' },
   hint: { color: colors.faint, fontSize: 13, textAlign: 'center' },

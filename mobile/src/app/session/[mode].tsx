@@ -19,6 +19,7 @@ const SESSION_SIZE = 10;
 function parseMode(mode: string, saved: Set<string>): { mode: FeedMode; title: string } {
   if (mode === 'saved') return { mode: { kind: 'ids', ids: [...saved] }, title: '🔖 Saved' };
   if (mode.startsWith('card-')) return { mode: { kind: 'ids', ids: [mode.slice(5)] }, title: 'Card' };
+  if (mode.startsWith('ids-')) return { mode: { kind: 'ids', ids: mode.slice(4).split(',').filter(Boolean) }, title: '📝 Mock misses' };
   if (mode === 'labs') return { mode: { kind: 'labs' }, title: 'Phone labs' };
   if (mode === 'drill') return { mode: { kind: 'drill' }, title: 'Bonus drill' };
   if (DOMAINS.some((d) => d.id === mode)) {

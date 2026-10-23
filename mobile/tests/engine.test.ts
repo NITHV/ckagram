@@ -6,6 +6,7 @@ import { claimPayload } from '@/content/labs';
 import { migrate } from '@/db/schema';
 import { buildQueue } from '@/engine/feed';
 import { AlreadyClaimedError, parseClaimUrl, recordClaim, verifyClaim } from '@/engine/labs';
+import { MOCK_SIZE, buildMock, recordMock } from '@/engine/mock';
 import { loadStats } from '@/engine/progress';
 import { recordAnswer } from '@/engine/record';
 
@@ -118,6 +119,54 @@ if (v.ok) {
     blocked = e instanceof AlreadyClaimedError;
   }
   check(blocked, 'the same QR cannot be claimed twice');
+}
+
+// --- mock exams ------------------------------------------------------------------------------
+const mock = buildMock(12);
+const counts: Record<string, number> = {};
+for (const c of mock) counts[c.domain] = (counts[c.domain] ?? 0) + 1;
+check(mock.length === MOCK_SIZE && new Set(mock.map((c) => c.id)).size === MOCK_SIZE, `mock has ${MOCK_SIZE} distinct questions`);
+check((counts.troubleshooting ?? 0) >= 6 && (counts.storage ?? 0) >= 1, `mock is weighted by domain (${JSON.stringify(counts)})`);
+check(buildMock(1).every((c) => c.week <= 4), 'early mocks only use unlocked weeks');
+
+{
+  const before = await loadStats(db);
+  const answers = mock.map((c, i) => ({ cardId: c.id, correct: i < 18 })); // 18/25 = 72%
+  const studied = mock.find((c, i) => i >= 18 && before.learnedTotal > 0);
+  const r = await recordMock(db, mock, answers.slice(0, 24), 1500, before); // last one unanswered
+  check(r.score === 72 && r.passed, `phone mock scores 72% and passes (${r.score}%)`);
+  check(r.xp === 18 * 10 + 100 && r.stats.xp === before.xp + r.xp, `phone mock pays ${r.xp} XP into the total`);
+  check(r.missed.length === 7, 'unanswered questions count as misses');
+  check(r.stats.mockCount === 1 && r.stats.mockBest === 72, 'mock stats are tracked');
+  if (studied) {
+    const row = await db.getFirstAsync('SELECT due FROM card_state WHERE card_id = ?', studied.id);
+    check(!row || row.due <= Date.now(), 'missed studied cards are due again');
+  }
+  const fail = await recordMock(db, mock, [], 1800, r.stats);
+  check(fail.score === 0 && !fail.passed && fail.xp === 0, 'an empty mock scores 0 and pays nothing');
+}
+
+{
+  const t2 = Date.now();
+  const extra = '75|6/8';
+  const h = (await sha256(claimPayload('mock', 4800, t2, 'mock01', extra))).slice(0, 20);
+  const p = parseClaimUrl(`ckagram://claim?l=mock&s=4800&t=${t2}&n=mock01&h=${h}&p=75&k=6/8`)!;
+  const mv = await verifyClaim(p, sha256);
+  check(mv.ok && mv.claim.kind === 'mock', 'a ckalab mock claim verifies');
+  check(!(await verifyClaim({ ...p, p: '95' }, sha256)).ok, 'a tampered mock score is rejected');
+  if (mv.ok) {
+    const before = await loadStats(db);
+    const r = await recordClaim(db, mv.claim, before);
+    check(r.mock?.passed === true && r.xp.total === 75 * 10 + 250, `laptop mock pays ${r.xp.total} XP`);
+    check(r.stats.mockBest === 75 && r.stats.labsDone === before.labsDone, 'laptop mock updates mock stats, not lab count');
+    let dup = false;
+    try {
+      await recordClaim(db, mv.claim, r.stats);
+    } catch (e) {
+      dup = e instanceof AlreadyClaimedError;
+    }
+    check(dup, 'a mock QR cannot be claimed twice');
+  }
 }
 
 console.log(failures ? `\n${failures} check(s) failed` : '\nall engine checks pass');

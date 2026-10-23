@@ -36,6 +36,23 @@ Then:
 Scan the QR code in the app (**Lab → Scan to claim**) to collect XP. Each code works
 once. Node-level labs use `docker exec -it ckagram-worker2 bash` in place of the exam's `ssh`.
 
+### Mock exam
+
+```
+.\ckalab mock                 # 8 tasks at once, one clock (~90 min). .\ckalab mock 4 for a quick one
+.\ckalab status               # time left
+.\ckalab submit               # grade everything, prints a QR code with your score
+.\ckalab abort                # stop without grading
+```
+
+Tasks are weighted by size with partial credit per check; the pass mark is 66%, like the CKA.
+From 4 tasks up, one is a cluster-level fault (scheduler, DNS or API server). No hints or
+solutions until you submit. The app also has a phone mock (**Lab → Mock exam**): 25 questions,
+30 minutes, no feedback until the end.
+
+Note: on Docker Desktop (WSL) the kind network plugin can't enforce NetworkPolicies, so the
+NetworkPolicy labs also grade your policies by evaluating their rules.
+
 Git Bash users: `./ckalab ...` works too.
 
 ## Layout
@@ -60,7 +77,7 @@ labs/                   ckalab runner, lab definitions, kind config, end-to-end 
   Put the right option first; the app shuffles options.
 - **Reels:** add to `mobile/src/content/reels.ts`. Frames: hook, say, code, flow, list, versus.
   The `quiz` must be an existing card id.
-- **Labs:** add metadata to `mobile/src/content/labs.ts`, the implementation to `labs/defs/`,
+- **Labs:** add metadata to `mobile/src/content/labs.ts`, the implementation to a file in `labs/defs/` (listed in `labs/defs/index.mjs`),
   and a solver to `labs/test-labs.mjs`.
 
 Then:

@@ -2,16 +2,17 @@ name: Laptop labs
 
 # Plays every lab end-to-end on a real kind cluster:
 # setup -> checks must fail -> apply the solution -> checks must pass.
+# Then a mock exam: several labs broken at once plus a cluster-level fault.
 on:
   push:
     branches: [main]
-    paths: ['labs/**', '.github/workflows/labs.yml']
+    paths: ['labs/**', 'mobile/src/content/labs.ts', '.github/workflows/labs.yml']
   workflow_dispatch:
 
 jobs:
   labs:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -22,5 +23,5 @@ jobs:
           cluster_name: ckagram
           config: labs/kind-config.yaml
           wait: 180s
-      - name: Play all labs
-        run: node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON labs/test-labs.mjs
+      - name: Play all labs, then a mock exam
+        run: node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON labs/test-labs.mjs --mock

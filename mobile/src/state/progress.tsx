@@ -4,7 +4,9 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { setMeta } from '@/db/schema';
 import type { QueueItem } from '@/engine/feed';
 import { recordClaim, verifyClaim, type ClaimParams, type ClaimResult } from '@/engine/labs';
+import { recordMock, type MockAnswer, type MockResult } from '@/engine/mock';
 import { loadStats, type Stats } from '@/engine/progress';
+import type { Card } from '@/content';
 import { recordAnswer, type AnswerResult } from '@/engine/record';
 import { haptic } from '@/lib/haptics';
 import { useCelebrate } from './celebrate';
@@ -17,6 +19,8 @@ interface ProgressContextValue {
   /** Verifies and records a laptop-lab QR claim. Throws with a readable message on failure. */
   claim: (params: ClaimParams) => Promise<ClaimResult>;
   markWinsSeen: () => Promise<void>;
+  /** Scores and saves a finished phone mock exam. */
+  finishMock: (questions: Card[], answers: MockAnswer[], seconds: number) => Promise<MockResult>;
 }
 
 const ProgressContext = createContext<ProgressContextValue | null>(null);
@@ -79,12 +83,29 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
     [db, celebrate, serial]
   );
 
+  const finishMock = useCallback(
+    (questions: Card[], answers: MockAnswer[], seconds: number) =>
+      serial(async () => {
+        const before = statsRef.current ?? (await loadStats(db));
+        const result = await recordMock(db, questions, answers, seconds, before);
+        statsRef.current = result.stats;
+        setStats(result.stats);
+        if (result.passed) haptic.success();
+        celebrate({ celebrations: result.celebrations });
+        return result;
+      }),
+    [db, celebrate, serial]
+  );
+
   const markWinsSeen = useCallback(async () => {
     await setMeta(db, 'wins_seen_at', String(Date.now()));
     await refresh();
   }, [db, refresh]);
 
-  const value = useMemo(() => ({ stats, refresh, answer, claim, markWinsSeen }), [stats, refresh, answer, claim, markWinsSeen]);
+  const value = useMemo(
+    () => ({ stats, refresh, answer, claim, markWinsSeen, finishMock }),
+    [stats, refresh, answer, claim, markWinsSeen, finishMock]
+  );
   return <ProgressContext.Provider value={value}>{children}</ProgressContext.Provider>;
 }
 

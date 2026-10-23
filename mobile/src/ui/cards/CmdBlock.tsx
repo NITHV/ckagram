@@ -12,7 +12,7 @@ interface Tile {
   text: string;
 }
 
-export function CmdBlock({ card, onAnswer }: { card: CmdCard; onAnswer: (correct: boolean) => void }) {
+export function CmdBlock({ card, onAnswer, blind }: { card: CmdCard; onAnswer: (correct: boolean) => void; blind?: boolean }) {
   const tiles = useMemo<Tile[]>(() => {
     // "kubectl" always comes first, so we pre-type it; the rest is the puzzle.
     const words = [...tokenize(card.answer).slice(1), ...(card.distractors ?? [])];
@@ -49,7 +49,14 @@ export function CmdBlock({ card, onAnswer }: { card: CmdCard; onAnswer: (correct
     <View style={{ gap: 12 }}>
       <RichText style={styles.task}>{card.task}</RichText>
 
-      <View style={[styles.terminal, result === true && { borderColor: colors.good }, result === false && { borderColor: colors.bad }]}>
+      <View
+        style={[
+          styles.terminal,
+          result !== null && blind && { borderColor: colors.accent },
+          result === true && !blind && { borderColor: colors.good },
+          result === false && !blind && { borderColor: colors.bad },
+        ]}
+      >
         <View style={styles.cmdLine}>
           <Text style={styles.prompt}>$ kubectl</Text>
           {built.map((t) => (
@@ -59,8 +66,9 @@ export function CmdBlock({ card, onAnswer }: { card: CmdCard; onAnswer: (correct
           ))}
           {result === null && <Text style={styles.cursor}>▌</Text>}
         </View>
-        {result === true && <Text style={[styles.output, { color: colors.good }]}>✓ exit 0</Text>}
-        {result === false && (
+        {result !== null && blind && <Text style={[styles.output, { color: colors.muted }]}>⏎ answer saved</Text>}
+        {result === true && !blind && <Text style={[styles.output, { color: colors.good }]}>✓ exit 0</Text>}
+        {result === false && !blind && (
           <>
             <Text style={[styles.output, { color: colors.bad }]}>✗ not quite. Expected:</Text>
             <Text style={[styles.output, { color: colors.terminalText }]}>$ {card.answer}</Text>

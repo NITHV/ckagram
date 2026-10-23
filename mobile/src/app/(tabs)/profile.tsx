@@ -41,6 +41,9 @@ function badges(s: Stats): Badge[] {
     { emoji: '⬆️', title: 'Level 5', got: s.level >= 5, hint: 'Reach level 5' },
     { emoji: '🚀', title: 'Level 10', got: s.level >= 10, hint: 'Reach level 10' },
     ...DOMAINS.map((d) => ({ emoji: d.emoji, title: `${d.short} 50%`, got: s.domains[d.id].mastery >= 0.5, hint: `Master half of ${d.short}` })),
+    { emoji: '📝', title: 'Test drive', got: s.mockCount >= 1, hint: 'Take a mock exam' },
+    { emoji: '✅', title: 'Mock pass', got: (s.mockBest ?? 0) >= 66, hint: 'Score 66% in a mock' },
+    { emoji: '💯', title: 'Mock ace', got: (s.mockBest ?? 0) >= 90, hint: 'Score 90% in a mock' },
     { emoji: '🎓', title: 'Exam ready', got: s.readiness >= 0.8, hint: 'Reach 80% readiness' },
   ];
 }

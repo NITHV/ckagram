@@ -1,7 +1,8 @@
 // Claiming laptop-lab completions scanned from the `ckalab check` QR code.
 import type { SQLiteDatabase } from 'expo-sqlite';
-import { LAB_BY_ID, claimPayload, type LabMeta } from '@/content/labs';
+import { LAB_BY_ID, MOCK_LAB_ID, claimPayload, type LabMeta } from '@/content/labs';
 import { dayKey } from '@/lib/dates';
+import { recordLaptopMock } from './mock';
 import { loadStats, type Stats } from './progress';
 import type { Celebration } from './record';
 import type { XpBreakdown } from './rewards';
@@ -12,14 +13,14 @@ export interface ClaimParams {
   t?: string;
   n?: string;
   h?: string;
+  /** Mock exams only: score 0–100 and tasks passed, like "6/8". */
+  p?: string;
+  k?: string;
 }
 
-export interface Claim {
-  lab: LabMeta;
-  seconds: number;
-  completedAt: number;
-  nonce: string;
-}
+export type Claim =
+  | { kind: 'lab'; lab: LabMeta; seconds: number; completedAt: number; nonce: string }
+  | { kind: 'mock'; score: number; passedTasks: number; totalTasks: number; seconds: number; completedAt: number; nonce: string };
 
 export type Sha256 = (text: string) => Promise<string>;
 
@@ -39,16 +40,27 @@ export function parseClaimUrl(url: string): ClaimParams | null {
 }
 
 export async function verifyClaim(p: ClaimParams, sha256: Sha256, now = Date.now()): Promise<{ ok: true; claim: Claim } | { ok: false; reason: string }> {
+  const isMock = p.l === MOCK_LAB_ID;
   const lab = p.l ? LAB_BY_ID[p.l] : undefined;
-  if (!lab) return { ok: false, reason: "This QR code isn't for a lab this version of the app knows. Update the app?" };
+  if (!lab && !isMock) return { ok: false, reason: "This QR code isn't for a lab this version of the app knows. Update the app?" };
   const seconds = Number(p.s);
   const completedAt = Number(p.t);
   if (!Number.isFinite(seconds) || !Number.isFinite(completedAt) || !p.n || !p.h) return { ok: false, reason: 'The QR code is incomplete.' };
-  const expected = (await sha256(claimPayload(lab.id, seconds, completedAt, p.n))).toLowerCase().slice(0, 20);
+  let extra: string | undefined;
+  let mock: { score: number; passedTasks: number; totalTasks: number } | undefined;
+  if (isMock) {
+    const score = Number(p.p);
+    const [passedTasks, totalTasks] = (p.k ?? '').split('/').map(Number);
+    if (!(score >= 0 && score <= 100) || !(totalTasks > 0) || !(passedTasks >= 0 && passedTasks <= totalTasks)) return { ok: false, reason: 'The QR code is incomplete.' };
+    extra = `${p.p}|${p.k}`;
+    mock = { score, passedTasks, totalTasks };
+  }
+  const expected = (await sha256(claimPayload(p.l!, seconds, completedAt, p.n, extra))).toLowerCase().slice(0, 20);
   if (expected !== p.h.toLowerCase()) return { ok: false, reason: "The QR code's signature doesn't match. Run ckalab check again." };
   if (completedAt > now + CLOCK_SKEW_MS) return { ok: false, reason: "This claim is from the future. Check your laptop's clock." };
   if (now - completedAt > MAX_AGE_MS) return { ok: false, reason: 'This claim is more than a week old.' };
-  return { ok: true, claim: { lab, seconds, completedAt, nonce: p.n } };
+  if (mock) return { ok: true, claim: { kind: 'mock', ...mock, seconds, completedAt, nonce: p.n } };
+  return { ok: true, claim: { kind: 'lab', lab: lab!, seconds, completedAt, nonce: p.n } };
 }
 
 export interface ClaimResult {
@@ -58,14 +70,29 @@ export interface ClaimResult {
   firstClear: boolean;
   personalBest: boolean;
   underTarget: boolean;
+  /** Set for laptop mock exam claims. */
+  mock?: { score: number; passed: boolean; passedTasks: number; totalTasks: number };
 }
 
 export class AlreadyClaimedError extends Error {}
 
 export async function recordClaim(db: SQLiteDatabase, claim: Claim, before: Stats): Promise<ClaimResult> {
   const now = new Date();
-  const dup = await db.getFirstAsync('SELECT 1 FROM lab_runs WHERE nonce = ?', claim.nonce);
+  const dup = await db.getFirstAsync('SELECT 1 FROM lab_runs WHERE nonce = ? UNION SELECT 1 FROM mock_runs WHERE nonce = ?', claim.nonce, claim.nonce);
   if (dup) throw new AlreadyClaimedError('You already claimed this one. Clear the lab again for another round.');
+
+  if (claim.kind === 'mock') {
+    const r = await recordLaptopMock(db, claim, before);
+    return {
+      xp: { total: r.xp, fast: false, multiplier: 1 },
+      celebrations: r.celebrations,
+      stats: r.stats,
+      firstClear: r.bestBefore === null,
+      personalBest: r.bestBefore !== null && claim.score > r.bestBefore,
+      underTarget: false,
+      mock: { score: claim.score, passed: r.passed, passedTasks: claim.passedTasks, totalTasks: claim.totalTasks },
+    };
+  }
 
   const prev = await db.getFirstAsync<{ n: number; best: number | null }>('SELECT COUNT(*) AS n, MIN(seconds) AS best FROM lab_runs WHERE lab_id = ?', claim.lab.id);
   const firstClear = (prev?.n ?? 0) === 0;

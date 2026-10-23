@@ -53,6 +53,7 @@ Daily hour: ~15 min reviews/feed (spread out), ~30 min labs, ~15 min new materia
 - **Content:** cards, reels and the lab catalog are typed data in the repo, validated in CI
 - **Reels:** animated frame sequences (hook, statement, typing terminal, flow, list, versus) with device text-to-speech narration, ending in a quiz card
 - **Laptop labs:** `ckalab` runner + kind cluster (1 control plane, 2 workers). Each lab breaks something, checks real cluster state, and prints a signed QR code; the app verifies it and awards XP (one claim per code)
+- **Mock exams:** phone (25 domain-weighted questions, 30 min, blind until submit) and laptop (`ckalab mock`: several labs at once, weighted partial credit, signed score QR)
 - **Readiness:** 75% knowledge (cards you'd remember 3+ weeks, weighted by exam domain) + 25% hands-on (labs cleared vs. a 40-lab target)
 - **CI:** content checks, typecheck, engine simulation test, APK build; a separate workflow plays every lab end-to-end on kind
 - **Later phases (system design lessons):** sync backend, event queue, caching, observability, deployed to Kubernetes as CKA practice
@@ -61,7 +62,8 @@ Daily hour: ~15 min reviews/feed (spread out), ~30 min labs, ~15 min new materia
 
 - [x] Phase 1: feed, stories, XP, streaks, levels, spaced repetition, APK pipeline
 - [x] Phase 2: laptop labs + QR claims, Reels, logo and icon, UI redesign (Instagram-style posts, profile, search)
-- [ ] Phase 3: more content (networking, storage, cluster architecture), timed mock exam mode, more labs
+- [x] Phase 3: content for weeks 5–12 (networking, Gateway API, storage, RBAC, kubeadm/etcd, Helm/Kustomize/CRDs, cluster troubleshooting), 24 reels, 27 laptop labs, mock exams on phone and laptop
+- [ ] Phase 4: week 13–14 exam-day drills, more boss labs (etcd restore, kubeadm upgrade), sync backend as a system design lesson
 
 ## Decisions made
 

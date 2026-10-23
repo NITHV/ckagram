@@ -5,7 +5,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 import Animated, { ZoomIn } from 'react-native-reanimated';
 import { DOMAIN_BY_ID } from '@/content';
 import type { ClaimParams, ClaimResult } from '@/engine/labs';
-import { LAB_BY_ID } from '@/content/labs';
+import { LAB_BY_ID, PASS_SCORE } from '@/content/labs';
 import { useProgress } from '@/state/progress';
 import { colors, radius } from '@/ui/theme';
 
@@ -39,6 +39,7 @@ export default function ClaimScreen() {
       </View>
     );
   }
+  if (result?.mock) return <MockClaimed result={result} mock={result.mock} secs={secs} />;
   if (!result || !lab) {
     return (
       <View style={styles.center}>
@@ -67,6 +68,31 @@ export default function ClaimScreen() {
       </View>
       <Pressable style={styles.btn} onPress={() => router.replace('/lab')}>
         <Text style={styles.btnText}>Next lab</Text>
+      </Pressable>
+      <Pressable onPress={() => router.replace('/')}>
+        <Text style={styles.link}>Back to feed</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+function MockClaimed({ result, mock, secs }: { result: ClaimResult; mock: NonNullable<ClaimResult['mock']>; secs: number }) {
+  return (
+    <View style={styles.center}>
+      <Animated.Text entering={ZoomIn.springify().damping(8)} style={{ fontSize: 72 }}>
+        {mock.passed ? '🎓' : '📝'}
+      </Animated.Text>
+      <Text style={styles.kicker}>{mock.passed ? 'LAPTOP MOCK PASSED' : 'LAPTOP MOCK'}</Text>
+      <Text style={[styles.title, { fontSize: 52, color: mock.passed ? colors.good : colors.text }]}>{mock.score}%</Text>
+      <Text style={styles.text}>
+        {mock.passedTasks} of {mock.totalTasks} tasks · {Math.floor(secs / 60)}m {secs % 60}s · pass mark {PASS_SCORE}%
+      </Text>
+      <Animated.Text entering={ZoomIn.delay(250)} style={styles.xp}>
+        +{result.xp.total} XP
+      </Animated.Text>
+      {result.personalBest && <Text style={styles.badge}>📈 New best mock score</Text>}
+      <Pressable style={styles.btn} onPress={() => router.replace('/mock')}>
+        <Text style={styles.btnText}>See mock history</Text>
       </Pressable>
       <Pressable onPress={() => router.replace('/')}>
         <Text style={styles.link}>Back to feed</Text>

@@ -2,6 +2,7 @@ import { k, q, NODES } from '../lib/kube.mjs';
 
 export const taintToleration = {
   id: 'taint-toleration',
+  mock: 'no', // taints a shared node
   ns: 'infra',
   task: `Node ${NODES.w2} is reserved for infra workloads.
 It has the taint dedicated=infra:NoSchedule and the label role=infra.
@@ -49,6 +50,7 @@ kubectl get pod log-agent -n infra -o wide`,
 
 export const drainNode = {
   id: 'drain-node',
+  mock: 'no', // would evict the other mock tasks' Pods
   ns: 'ops',
   task: `Node ${NODES.w1} needs maintenance.
 Evict its workloads safely and make sure nothing new gets scheduled there.
@@ -83,6 +85,7 @@ const KUBELET_BAK = '/root/.ckagram-kubelet-config.bak';
 
 export const nodeNotReady = {
   id: 'node-notready',
+  mock: 'no', // NotReady nodes evict Pods after 5 minutes
   ns: null,
   task: `Node ${NODES.w2} is NotReady. Bring it back to Ready.
 
@@ -121,6 +124,7 @@ const SCHED_BAK = '/root/.ckagram-kube-scheduler.yaml.bak';
 
 export const brokenScheduler = {
   id: 'broken-scheduler',
+  mock: 'breaker',
   ns: 'sched',
   task: `New Pods in the cluster stay Pending. Find the cause and fix it.
 Deployment test in namespace sched must end up with its Pod Running.

@@ -8,7 +8,7 @@ import { comboMultiplier, isFast, xpFor, type XpBreakdown } from './rewards';
 import type { QueueItem } from './feed';
 
 export interface Celebration {
-  kind: 'level' | 'streak' | 'goal' | 'boss' | 'combo' | 'domain' | 'readiness' | 'pb' | 'lab' | 'reel';
+  kind: 'level' | 'streak' | 'goal' | 'boss' | 'combo' | 'domain' | 'readiness' | 'pb' | 'lab' | 'reel' | 'mock';
   emoji: string;
   title: string;
   detail?: string;

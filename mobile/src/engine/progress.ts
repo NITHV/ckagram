@@ -64,6 +64,10 @@ export interface Stats {
   labBest: Record<string, number>;
   /** Wins since the Activity tab was last opened. */
   newWins: number;
+  mockCount: number;
+  /** Best mock score (0–100) on phone or laptop, or null before the first mock. */
+  mockBest: number | null;
+  mockLast: { score: number; passed: boolean; kind: 'phone' | 'laptop'; ts: number } | null;
   dueTotal: number;
   freshTotal: number;
   learnedTotal: number;
@@ -121,16 +125,22 @@ export async function loadStats(db: SQLiteDatabase, now = new Date()): Promise<S
   const states = await loadStates(db);
 
   const totals = await db.getFirstAsync<{ xp: number | null }>(
-    'SELECT (SELECT IFNULL(SUM(xp), 0) FROM reviews) + (SELECT IFNULL(SUM(xp), 0) FROM lab_runs) AS xp'
+    'SELECT (SELECT IFNULL(SUM(xp), 0) FROM reviews) + (SELECT IFNULL(SUM(xp), 0) FROM lab_runs) + (SELECT IFNULL(SUM(xp), 0) FROM mock_runs) AS xp'
   );
   const today = await db.getFirstAsync<{ xp: number | null; correct: number | null }>(
-    `SELECT (SELECT IFNULL(SUM(xp), 0) FROM reviews WHERE day = $d) + (SELECT IFNULL(SUM(xp), 0) FROM lab_runs WHERE day = $d) AS xp,
-            (SELECT IFNULL(SUM(correct), 0) FROM reviews WHERE day = $d) + (SELECT COUNT(*) FROM lab_runs WHERE day = $d) AS correct`,
+    `SELECT (SELECT IFNULL(SUM(xp), 0) FROM reviews WHERE day = $d) + (SELECT IFNULL(SUM(xp), 0) FROM lab_runs WHERE day = $d)
+              + (SELECT IFNULL(SUM(xp), 0) FROM mock_runs WHERE day = $d) AS xp,
+            (SELECT IFNULL(SUM(correct), 0) FROM reviews WHERE day = $d) + (SELECT COUNT(*) FROM lab_runs WHERE day = $d)
+              + (SELECT IFNULL(SUM(correct), 0) FROM mock_runs WHERE day = $d) AS correct`,
     { $d: dayKey(now) }
   );
-  // A day counts for the streak if you got a card right or cleared a lab.
+  // A day counts for the streak if you got a card right, cleared a lab or scored in a mock.
   const dayRows = await db.getAllAsync<{ day: string }>(
-    'SELECT DISTINCT day FROM reviews WHERE correct = 1 UNION SELECT DISTINCT day FROM lab_runs'
+    'SELECT DISTINCT day FROM reviews WHERE correct = 1 UNION SELECT DISTINCT day FROM lab_runs UNION SELECT DISTINCT day FROM mock_runs WHERE correct > 0'
+  );
+  const mockAgg = await db.getFirstAsync<{ n: number; best: number | null }>('SELECT COUNT(*) AS n, MAX(score) AS best FROM mock_runs');
+  const mockLastRow = await db.getFirstAsync<{ score: number; passed: number; kind: 'phone' | 'laptop'; ts: number }>(
+    'SELECT score, passed, kind, ts FROM mock_runs ORDER BY ts DESC LIMIT 1'
   );
   const labRows = await db.getAllAsync<{ lab_id: string; best: number }>('SELECT lab_id, MIN(seconds) AS best FROM lab_runs GROUP BY lab_id');
   const labBest = Object.fromEntries(labRows.map((r) => [r.lab_id, r.best]));
@@ -207,6 +217,9 @@ export async function loadStats(db: SQLiteDatabase, now = new Date()): Promise<S
     labsDone,
     labBest,
     newWins: newWinsRow?.n ?? 0,
+    mockCount: mockAgg?.n ?? 0,
+    mockBest: mockAgg?.best ?? null,
+    mockLast: mockLastRow ? { ...mockLastRow, passed: !!mockLastRow.passed } : null,
     dueTotal: DOMAINS.reduce((n, d) => n + domains[d.id].due, 0),
     freshTotal: DOMAINS.reduce((n, d) => n + domains[d.id].fresh, 0),
     learnedTotal: states.size,

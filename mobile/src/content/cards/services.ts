@@ -1,0 +1,242 @@
+import type { Card } from '../types';
+
+const SVC = 'https://kubernetes.io/docs/concepts/services-networking/service/';
+const DNS = 'https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/';
+
+export const cards: Card[] = [
+  {
+    id: 'svc-01',
+    type: 'concept',
+    domain: 'networking',
+    topic: 'Services',
+    week: 5,
+    title: 'A Service is a stable front door',
+    body: 'Pods come and go, and their IPs change. A **Service** gives a fixed virtual IP and DNS name, and load-balances to every ready Pod whose labels match its **selector**.',
+    check: {
+      q: 'A Service exists but has no endpoints. What is the most likely cause?',
+      options: ['Its selector matches no ready Pods', 'kube-proxy is using iptables', 'It has no nodePort', 'The namespace has no ResourceQuota'],
+      answer: 0,
+    },
+    explain: 'No endpoints = no ready Pod matches the selector. Compare `kubectl get svc web -o wide` (SELECTOR column) with `kubectl get pods --show-labels`. Pods that fail readiness are left out too.',
+    docs: SVC,
+  },
+  {
+    id: 'svc-02',
+    type: 'mcq',
+    domain: 'networking',
+    topic: 'Services',
+    week: 5,
+    q: 'Which Service type is the default when you leave `type` out?',
+    options: ['ClusterIP', 'NodePort', 'LoadBalancer', 'ExternalName'],
+    answer: 0,
+    explain: 'ClusterIP: reachable only inside the cluster. NodePort adds a port on every node. LoadBalancer adds a cloud load balancer on top of a NodePort. ExternalName is just a DNS CNAME.',
+    docs: SVC + '#publishing-services-service-types',
+  },
+  {
+    id: 'svc-03',
+    type: 'cmd',
+    domain: 'networking',
+    topic: 'Services',
+    week: 5,
+    task: 'Expose Deployment web on port 80, forwarding to container port 8080.',
+    answer: 'kubectl expose deployment web --port=80 --target-port=8080',
+    distractors: ['--node-port=80', 'service', '--type=Ingress'],
+    explain: '`kubectl expose` copies the Deployment\'s selector into the Service for you. That is why it beats writing Service YAML by hand.',
+    docs: SVC,
+  },
+  {
+    id: 'svc-04',
+    type: 'mcq',
+    domain: 'networking',
+    topic: 'Services',
+    week: 5,
+    q: 'In a Service port entry, what is `targetPort`?',
+    options: ['The port on the Pod that traffic is sent to', 'The port clients connect to on the ClusterIP', 'The port opened on every node', 'The port of the kube-proxy'],
+    answer: 0,
+    explain: '`port` = what clients hit on the Service IP. `targetPort` = the container port (number or named port). `nodePort` = the port on every node (NodePort/LoadBalancer only).',
+    docs: SVC + '#defining-a-service',
+  },
+  {
+    id: 'svc-05',
+    type: 'mcq',
+    domain: 'networking',
+    topic: 'Services',
+    week: 5,
+    q: 'What is the default range for NodePort ports?',
+    options: ['30000–32767', '1024–65535', '8000–9000', '20000–29999'],
+    answer: 0,
+    explain: 'Set by the API server flag --service-node-port-range. Ask for a specific one with `nodePort: 30080`, or leave it out and get a random free port.',
+    docs: SVC + '#type-nodeport',
+  },
+  {
+    id: 'svc-06',
+    type: 'cmd',
+    domain: 'networking',
+    topic: 'Services',
+    week: 5,
+    task: 'Expose Pod nginx as a NodePort Service on port 80.',
+    answer: 'kubectl expose pod nginx --port=80 --type=NodePort',
+    distractors: ['--type=nodeport', 'deployment', '--external'],
+    explain: 'Then `kubectl get svc nginx` shows 80:3xxxx/TCP. The second number is the node port. Values are case-sensitive: NodePort, not nodeport.',
+  },
+  {
+    id: 'svc-07',
+    type: 'yaml',
+    domain: 'networking',
+    topic: 'Services',
+    week: 5,
+    task: 'Pods are labeled app=api and listen on 8080. This Service has no endpoints. Tap the broken line.',
+    yaml: `apiVersion: v1
+kind: Service
+metadata:
+  name: api
+spec:
+  selector:
+    app: api-server
+  ports:
+  - port: 80
+    targetPort: 8080`,
+    bugLine: 6,
+    fixLine: '    app: api',
+    explain: 'The selector must match the Pod labels exactly. `kubectl get endpointslices -l kubernetes.io/service-name=api` shows what the Service actually found.',
+    docs: SVC,
+  },
+  {
+    id: 'svc-08',
+    type: 'yaml',
+    domain: 'networking',
+    topic: 'Services',
+    week: 5,
+    task: 'Expose port 80 on every node at 30080. Tap the broken line.',
+    yaml: `apiVersion: v1
+kind: Service
+metadata:
+  name: web
+spec:
+  type: NodePort
+  selector:
+    app: web
+  ports:
+  - port: 80
+    targetPort: 80
+    nodePort: 8080`,
+    bugLine: 11,
+    fixLine: '    nodePort: 30080',
+    explain: 'nodePort must fall inside 30000–32767 by default. The API server rejects 8080 with "provided port is not in the valid range".',
+    docs: SVC + '#type-nodeport',
+  },
+  {
+    id: 'svc-09',
+    type: 'concept',
+    domain: 'networking',
+    topic: 'Services',
+    week: 5,
+    title: 'Endpoints are the real targets',
+    body: 'The Service object is a promise. **EndpointSlices** list the Pod IPs that actually back it, updated live as Pods become ready or disappear. kube-proxy on every node turns them into iptables/IPVS/nftables rules.',
+    check: {
+      q: 'Which command shows the Pod IPs behind Service web?',
+      options: ['kubectl get endpointslices -l kubernetes.io/service-name=web', 'kubectl get svc web --show-labels', 'kubectl top svc web', 'kubectl logs svc/web'],
+      answer: 0,
+    },
+    explain: '`kubectl get endpoints web` still works too (the older API, deprecated in favor of EndpointSlices). `kubectl describe svc web` also prints Endpoints:.',
+    docs: 'https://kubernetes.io/docs/concepts/services-networking/endpoint-slices/',
+  },
+  {
+    id: 'svc-10',
+    type: 'mcq',
+    domain: 'networking',
+    topic: 'Services',
+    week: 5,
+    q: 'A Pod is Running but its readiness probe fails. What happens to Service traffic?',
+    options: ['The Pod is removed from the Service endpoints until it is ready', 'The Pod still gets traffic', 'The Pod is restarted', 'The Service is deleted'],
+    answer: 0,
+    explain: 'Readiness gates traffic; liveness restarts. A Pod failing readiness stays Running but is listed under notReadyAddresses / ready=false in the EndpointSlice.',
+  },
+  {
+    id: 'svc-11',
+    type: 'concept',
+    domain: 'networking',
+    topic: 'DNS',
+    week: 5,
+    title: 'Every Service gets a DNS name',
+    body: 'CoreDNS answers **web.shop.svc.cluster.local** with the ClusterIP of Service web in namespace shop. From the same namespace, just **web** works. From another namespace, **web.shop**.',
+    check: {
+      q: 'A Pod in namespace dev must reach Service db in namespace prod. Which name works?',
+      options: ['db.prod', 'db', 'prod.db', 'db.dev.svc'],
+      answer: 0,
+    },
+    explain: 'The Pod\'s /etc/resolv.conf has search domains for its own namespace first, so a bare "db" resolves to dev\'s db. Add the namespace to cross over.',
+    docs: DNS,
+  },
+  {
+    id: 'svc-12',
+    type: 'mcq',
+    domain: 'networking',
+    topic: 'DNS',
+    week: 5,
+    q: 'What does a headless Service (`clusterIP: None`) return for its DNS name?',
+    options: ['The IPs of the ready Pods themselves', 'A single virtual IP', 'NXDOMAIN', 'The node IPs'],
+    answer: 0,
+    explain: 'Headless = no virtual IP and no kube-proxy load balancing. DNS returns A records for each Pod. StatefulSets use one so each Pod gets a name like db-0.db.prod.svc.cluster.local.',
+    docs: SVC + '#headless-services',
+  },
+  {
+    id: 'svc-13',
+    type: 'cmd',
+    domain: 'networking',
+    topic: 'DNS',
+    week: 5,
+    task: 'Run a throwaway busybox Pod that looks up the name web and is deleted afterwards.',
+    answer: 'kubectl run tmp --rm -it --restart=Never --image=busybox:1.36 -- nslookup web',
+    alts: ['kubectl run tmp --rm -it --image=busybox:1.36 --restart=Never -- nslookup web'],
+    distractors: ['--dns', 'dig', '--port=53'],
+    explain: 'The classic exam check for Service and DNS problems. Use busybox:1.36 or later: some old busybox images have a broken nslookup.',
+  },
+  {
+    id: 'svc-14',
+    type: 'mcq',
+    domain: 'networking',
+    topic: 'Services',
+    week: 5,
+    q: 'What does an ExternalName Service do?',
+    options: ['Returns a DNS CNAME to an outside hostname', 'Opens a public IP', 'Proxies traffic through kube-proxy to the internet', 'Creates an Ingress'],
+    answer: 0,
+    explain: 'type: ExternalName with externalName: db.example.com. No selector, no proxying, just DNS. Handy for pointing in-cluster apps at a managed database.',
+    docs: SVC + '#externalname',
+  },
+  {
+    id: 'svc-15',
+    type: 'mcq',
+    domain: 'networking',
+    topic: 'Services',
+    week: 6,
+    q: 'Which setting keeps the client\'s source IP for NodePort/LoadBalancer traffic?',
+    options: ['externalTrafficPolicy: Local', 'sessionAffinity: ClientIP', 'internalTrafficPolicy: Cluster', 'ipFamilyPolicy: SingleStack'],
+    answer: 0,
+    explain: 'Local only sends traffic to Pods on the node that received it, so there is no second SNAT hop. The cost: nodes without a Pod drop that traffic.',
+    docs: SVC + '#traffic-policies',
+  },
+  {
+    id: 'svc-16',
+    type: 'cmd',
+    domain: 'networking',
+    topic: 'Services',
+    week: 6,
+    task: 'Create a ClusterIP Service named db that forwards port 5432 to 5432 (selector app=db is added for you).',
+    answer: 'kubectl create service clusterip db --tcp=5432:5432',
+    distractors: ['--port=5432', 'expose', '--type=ClusterIP'],
+    explain: '`kubectl create service clusterip <name>` sets selector app=<name>. If your Pods use a different label, prefer `kubectl expose`.',
+  },
+  {
+    id: 'svc-17',
+    type: 'mcq',
+    domain: 'networking',
+    topic: 'Services',
+    week: 6,
+    boss: true,
+    q: 'curl to Service web\'s ClusterIP times out. Endpoints list 2 Pod IPs, and curl to a Pod IP on port 8080 works. The Service has port 80, targetPort 80. What is wrong?',
+    options: ['targetPort should be 8080', 'The selector is wrong', 'CoreDNS is down', 'The Pods are not ready'],
+    answer: 0,
+    explain: 'Endpoints exist, so the selector and readiness are fine. Pods answer on 8080, but the Service sends to port 80. Fix targetPort (or use a named port).',
+  },
+];

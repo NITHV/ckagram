@@ -19,6 +19,7 @@ export default function RootLayout() {
             <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
               <Stack.Screen name="(tabs)" />
               <Stack.Screen name="session/[mode]" options={{ presentation: 'fullScreenModal', animation: 'slide_from_bottom' }} />
+              <Stack.Screen name="mock" options={{ presentation: 'fullScreenModal', animation: 'slide_from_bottom' }} />
               <Stack.Screen name="activity" options={{ ...pushed, title: 'Activity' }} />
               <Stack.Screen name="scan" options={{ ...pushed, title: 'Scan lab QR' }} />
               <Stack.Screen name="claim" options={{ ...pushed, title: 'Lab claim', animation: 'fade' }} />

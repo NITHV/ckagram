@@ -48,6 +48,25 @@ export default function Lab() {
           </LinearGradient>
         </Pressable>
 
+        <Pressable
+          onPress={() => {
+            haptic.tap();
+            router.push('/mock');
+          }}
+          style={styles.mock}
+        >
+          <Text style={{ fontSize: 30 }}>🎓</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.mockTitle}>Mock exam</Text>
+            <Text style={styles.mockSub}>
+              {stats?.mockLast
+                ? `Last ${stats.mockLast.score}%${stats.mockLast.passed ? ' ✓ pass' : ''} · best ${stats.mockBest}% · ${stats.mockCount} taken`
+                : 'Timed, no feedback until the end. Pass mark 66%.'}
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={colors.muted} />
+        </Pressable>
+
         <Text style={styles.h2}>💻 Laptop labs</Text>
         <View style={styles.list}>
           {LABS.map((l) => {
@@ -137,6 +156,9 @@ export default function Lab() {
 }
 
 const styles = StyleSheet.create({
+  mock: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.surface, borderRadius: radius.md, padding: 14, borderWidth: 1, borderColor: colors.border },
+  mockTitle: { color: colors.text, fontWeight: '800', fontSize: 16 },
+  mockSub: { color: colors.muted, fontSize: 12.5, marginTop: 2 },
   screen: { flex: 1, backgroundColor: colors.bg },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
   h1: { color: colors.text, fontSize: 28, fontWeight: '900' },

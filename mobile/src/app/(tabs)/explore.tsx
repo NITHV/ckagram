@@ -141,6 +141,13 @@ export default function Explore() {
               <Text style={styles.actionSub}>Your bookmarks</Text>
             </Pressable>
           </View>
+          <Pressable style={[styles.action, styles.mockAction]} onPress={() => router.push('/mock')}>
+            <Text style={styles.actionEmoji}>🎓</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.actionTitle}>Mock exam</Text>
+              <Text style={styles.actionSub}>25 questions · 30 min · pass 66%</Text>
+            </View>
+          </Pressable>
 
           <Text style={styles.h2}>Topics</Text>
           <View style={styles.topics}>
@@ -164,6 +171,7 @@ export default function Explore() {
 }
 
 const styles = StyleSheet.create({
+  mockAction: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#B04BFF22', flex: 0 },
   screen: { flex: 1, backgroundColor: colors.bg },
   searchWrap: { flexDirection: 'row', alignItems: 'center', gap: 8, margin: 12, marginBottom: 4, paddingHorizontal: 12, backgroundColor: colors.surface2, borderRadius: radius.md },
   search: { flex: 1, color: colors.text, fontSize: 15, paddingVertical: 10 },

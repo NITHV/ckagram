@@ -6,8 +6,9 @@
 //   ckalab start <lab>        reset and break things for a lab, start the clock
 //   ckalab check              verify your fix; prints a QR code to claim XP
 //   ckalab hint | solution    nudge or full walkthrough for the current lab
-//   ckalab reset              undo the current lab
-//   ckalab down               delete the cluster
+//   ckalab mock [tasks]       mock exam: several labs at once on one clock (default 8)
+//   ckalab submit | abort     grade the mock (QR code) | stop it without grading
+//   ckalab reset | down       undo the current lab or mock | delete the cluster
 import { spawnSync } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -15,15 +16,14 @@ import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CLUSTER, CONTEXT, k } from './lib/kube.mjs';
-import * as w1 from './defs/week1.mjs';
-import * as w2 from './defs/week2.mjs';
-import * as w34 from './defs/week3-4.mjs';
-import { LABS, LAB_BY_ID, claimPayload } from '../mobile/src/content/labs.ts';
+import { gradeMock, mockMinutes, pickMock, resetLab, resetMock, setupLab, setupMock } from './lib/mock.mjs';
+import { IMPL } from './defs/index.mjs';
+import { LABS, LAB_BY_ID, MOCK_LAB_ID, PASS_SCORE, claimPayload } from '../mobile/src/content/labs.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const IMPL = Object.fromEntries([...Object.values(w1), ...Object.values(w2), ...Object.values(w34)].map((l) => [l.id, l]));
 const STATE_DIR = join(homedir(), '.ckagram');
 const STATE_FILE = join(STATE_DIR, 'labs-state.json');
+const MOCK_FILE = join(STATE_DIR, 'mock-tasks.txt');
 
 const c = {
   bold: (s) => `\x1b[1m${s}\x1b[0m`,
@@ -36,9 +36,9 @@ const c = {
 
 function loadState() {
   try {
-    return JSON.parse(readFileSync(STATE_FILE, 'utf8'));
+    return { current: null, mock: null, best: {}, ...JSON.parse(readFileSync(STATE_FILE, 'utf8')) };
   } catch {
-    return { current: null, best: {} };
+    return { current: null, mock: null, best: {} };
   }
 }
 function saveState(s) {
@@ -69,11 +69,40 @@ function requireCluster() {
 
 const fmtTime = (s) => `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, '0')}s`;
 
-async function resetLab(id) {
-  const lab = IMPL[id];
-  if (!lab) return;
-  if (lab.cleanup) await lab.cleanup();
-  if (lab.ns) k.try('delete', 'namespace', lab.ns, '--wait=true', '--timeout=90s');
+/** Cleans up whatever is running (a lab or a mock) and clears it from the state. */
+async function clearRunning(state) {
+  if (state.mock) {
+    console.log(c.dim('Cleaning up the mock exam…'));
+    await resetMock(state.mock.ids);
+  }
+  if (state.current) {
+    console.log(c.dim(`Cleaning up ${state.current.id}…`));
+    await resetLab(state.current.id);
+  }
+  state.current = null;
+  state.mock = null;
+  saveState(state);
+}
+
+/** Signs the claim and prints it as a QR code for the app's scanner. */
+async function printClaim(lab, seconds, extraParams = {}, xpText = '') {
+  const completedAt = Date.now();
+  const nonce = randomBytes(6).toString('hex');
+  const extra = extraParams.p !== undefined ? `${extraParams.p}|${extraParams.k}` : undefined;
+  const sig = createHash('sha256').update(claimPayload(lab, seconds, completedAt, nonce, extra)).digest('hex').slice(0, 20);
+  const more = Object.entries(extraParams).map(([key, v]) => `&${key}=${encodeURIComponent(v)}`).join('');
+  const url = `ckagram://claim?l=${lab}&s=${seconds}&t=${completedAt}&n=${nonce}&h=${sig}${more}`;
+  try {
+    const QR = (await import('qrcode')).default;
+    console.log(`\nScan with CKAgram (Lab tab → Scan) to claim ${c.gold(xpText)}:\n`);
+    console.log(await QR.toString(url, { type: 'terminal', small: true }));
+    const png = join(STATE_DIR, 'claim.png');
+    await QR.toFile(png, url, { width: 480, margin: 2 });
+    console.log(c.dim(`Bigger QR image: ${png}`));
+  } catch {
+    console.log(c.dim('\n(QR library missing: run npm install inside labs/)'));
+  }
+  console.log(c.dim(`Claim link: ${url}\n`));
 }
 
 const commands = {
@@ -92,6 +121,7 @@ const commands = {
   async down() {
     const state = loadState();
     state.current = null;
+    state.mock = null;
     saveState(state);
     spawnSync(kindBin(), ['delete', 'cluster', '--name', CLUSTER], { stdio: 'inherit' });
   },
@@ -104,9 +134,9 @@ const commands = {
       const mark = best !== undefined ? c.green('✓') : ' ';
       const time = best !== undefined ? c.green(`best ${fmtTime(best)}`) : c.dim(`target ${l.minutes}m`);
       const boss = l.boss ? c.gold(' 👑') : '';
-      console.log(` ${mark} ${c.cyan(l.id.padEnd(18))} wk${l.week}  ${l.title}${boss}  ${c.dim(`+${l.xp} XP`)}  ${time}`);
+      console.log(` ${mark} ${c.cyan(l.id.padEnd(18))} wk${String(l.week).padEnd(3)} ${l.title}${boss}  ${c.dim(`+${l.xp} XP`)}  ${time}`);
     }
-    console.log(`\nStart one: ${c.cyan('ckalab start <lab>')}\n`);
+    console.log(`\nStart one: ${c.cyan('ckalab start <lab>')}    Mock exam: ${c.cyan('ckalab mock')}\n`);
   },
 
   async start(id) {
@@ -118,14 +148,9 @@ const commands = {
     }
     requireCluster();
     const state = loadState();
-    if (state.current) {
-      console.log(c.dim(`Cleaning up ${state.current.id}…`));
-      await resetLab(state.current.id);
-    }
+    await clearRunning(state);
     console.log(c.dim('Preparing the lab…'));
-    await resetLab(id);
-    if (lab.ns) await k.createNamespace(lab.ns);
-    await lab.setup();
+    await setupLab(id);
     state.current = { id, startedAt: Date.now(), hints: 0 };
     saveState(state);
 
@@ -137,6 +162,7 @@ const commands = {
 
   async hint() {
     const state = loadState();
+    if (state.mock) return console.log('No hints in a mock exam. Use the kubernetes.io docs, like on exam day.');
     if (!state.current) return console.log('No lab running. ckalab start <lab>');
     const lab = IMPL[state.current.id];
     const i = Math.min(state.current.hints ?? 0, lab.hints.length - 1);
@@ -147,6 +173,7 @@ const commands = {
 
   async solution() {
     const state = loadState();
+    if (state.mock) return console.log('Solutions unlock after the mock: ckalab submit, then ckalab start <lab> to replay any task.');
     if (!state.current) return console.log('No lab running. ckalab start <lab>');
     console.log(`\n${c.bold('Solution')}\n${IMPL[state.current.id].solution}\n`);
     state.current.sawSolution = true;
@@ -155,15 +182,14 @@ const commands = {
 
   async reset() {
     const state = loadState();
-    if (!state.current) return console.log('No lab running.');
-    await resetLab(state.current.id);
-    console.log(c.green(`✓ ${state.current.id} cleaned up.`));
-    state.current = null;
-    saveState(state);
+    if (!state.current && !state.mock) return console.log('Nothing running.');
+    await clearRunning(state);
+    console.log(c.green('✓ Cleaned up.'));
   },
 
   async check() {
     const state = loadState();
+    if (state.mock) return console.log(`A mock exam is running. Grade it with ${c.cyan('ckalab submit')} (no partial peeks, like the exam).`);
     if (!state.current) return console.log('No lab running. ckalab start <lab>');
     requireCluster();
     const { id, startedAt } = state.current;
@@ -182,38 +208,85 @@ const commands = {
     if (pb) state.best[id] = seconds;
     console.log(`\n${c.green(c.bold('🎉 Lab cleared!'))}  ${fmtTime(seconds)}${pb && prev !== undefined ? c.gold('  ⏱ new personal best') : ''}${seconds <= meta.minutes * 60 ? c.gold('  ⚡ under target') : ''}`);
     if (state.current.sawSolution) console.log(c.dim('(You opened the solution: XP still counts, but try it again cold later.)'));
-
-    const completedAt = Date.now();
-    const nonce = randomBytes(6).toString('hex');
-    const sig = createHash('sha256').update(claimPayload(id, seconds, completedAt, nonce)).digest('hex').slice(0, 20);
-    const url = `ckagram://claim?l=${id}&s=${seconds}&t=${completedAt}&n=${nonce}&h=${sig}`;
-
-    try {
-      const QR = (await import('qrcode')).default;
-      console.log(`\nScan with CKAgram (Lab tab → Scan) to claim ${c.gold(`+${meta.xp} XP`)}:\n`);
-      console.log(await QR.toString(url, { type: 'terminal', small: true }));
-      const png = join(STATE_DIR, 'claim.png');
-      await QR.toFile(png, url, { width: 480, margin: 2 });
-      console.log(c.dim(`Bigger QR image: ${png}`));
-    } catch {
-      console.log(c.dim('\n(QR library missing: run npm install inside labs/)'));
-    }
-    console.log(c.dim(`Claim link: ${url}\n`));
+    await printClaim(id, seconds, {}, `+${meta.xp} XP`);
 
     await resetLab(id);
     state.current = null;
     saveState(state);
   },
 
+  async mock(arg) {
+    const n = Math.max(3, Math.min(12, Number(arg) || 8));
+    requireCluster();
+    const state = loadState();
+    await clearRunning(state);
+    const ids = pickMock(n);
+    const minutes = mockMinutes(ids);
+    console.log(c.dim(`Setting up ${n} tasks. This takes a few minutes; the clock starts when they're ready…`));
+    await setupMock(ids);
+    state.mock = { ids, startedAt: Date.now(), minutes };
+    saveState(state);
+
+    // Shown in a shuffled order so the cluster-level task isn't always last.
+    const shown = [...ids].sort(() => Math.random() - 0.5);
+    const total = ids.reduce((s, id) => s + LAB_BY_ID[id].minutes, 0);
+    const lines = [`CKAgram mock exam: ${n} tasks, ${minutes} minutes, pass mark ${PASS_SCORE}%`, `Context: ${CONTEXT}`, ''];
+    shown.forEach((id, i) => {
+      const meta = LAB_BY_ID[id];
+      lines.push(`── Task ${i + 1} of ${n} · ${Math.round((100 * meta.minutes) / total)}% · ${meta.title} ──`, IMPL[id].task, '');
+    });
+    lines.push('When you are done (or time is up): ckalab submit');
+    writeFileSync(MOCK_FILE, lines.join('\n'));
+
+    console.log(`\n${c.bold(lines[0])}\n`);
+    console.log(lines.slice(2).join('\n'));
+    console.log(c.dim(`\nTasks saved to ${MOCK_FILE}. No hints or solutions until you submit. Time check: ckalab status\n`));
+  },
+
+  async submit() {
+    const state = loadState();
+    if (!state.mock) return console.log(`No mock running. Start one: ${c.cyan('ckalab mock')}`);
+    requireCluster();
+    const { ids, startedAt, minutes } = state.mock;
+    const seconds = Math.round((Date.now() - startedAt) / 1000);
+    console.log(c.dim('Grading…'));
+    const g = await gradeMock(ids);
+    console.log('');
+    for (const t of g.tasks) {
+      const meta = LAB_BY_ID[t.id];
+      const mark = t.fraction === 1 ? c.green('✓') : t.fraction > 0 ? c.gold('◐') : c.red('✗');
+      console.log(`${mark} ${c.bold(meta.title)} ${c.dim(`(${t.id}, ${Math.round(t.fraction * 100)}%)`)}`);
+      for (const [label, ok] of t.results) console.log(`    ${ok ? c.green('✓') : c.red('✗')} ${label}`);
+    }
+    const over = seconds > minutes * 60;
+    console.log(`\n${c.bold(`Score ${g.score}%`)}  ${g.passed ? c.green(c.bold('PASS')) : c.gold('below the pass mark')}  ·  ${g.passedTasks}/${ids.length} tasks fully solved  ·  ${fmtTime(seconds)} of ${minutes}m`);
+    if (over) console.log(c.gold('Over time: on exam day the terminal closes at the limit. Pace matters.'));
+    console.log(c.dim('Replay any task with ckalab start <lab-id> (hints and solutions work there).'));
+    await printClaim(MOCK_LAB_ID, seconds, { p: String(g.score), k: `${g.passedTasks}/${ids.length}` }, 'your mock XP');
+    await clearRunning(state);
+  },
+
+  async abort() {
+    const state = loadState();
+    if (!state.mock) return console.log('No mock running.');
+    await clearRunning(state);
+    console.log(c.green('✓ Mock stopped and cleaned up. Nothing was graded.'));
+  },
+
   async status() {
     const state = loadState();
+    if (state.mock) {
+      const used = Math.round((Date.now() - state.mock.startedAt) / 1000);
+      const left = state.mock.minutes * 60 - used;
+      return console.log(`Mock exam: ${state.mock.ids.length} tasks · ${fmtTime(used)} used · ${left > 0 ? `${fmtTime(left)} left` : c.red('over time')}\nTasks: ${MOCK_FILE}`);
+    }
     if (!state.current) return console.log('No lab running.');
     const s = Math.round((Date.now() - state.current.startedAt) / 1000);
     console.log(`${state.current.id}: running for ${fmtTime(s)}`);
   },
 
   async help() {
-    const src = readFileSync(fileURLToPath(import.meta.url), 'utf8').split('\n').slice(1, 10).map((l) => l.replace(/^\/\/ ?/, ''));
+    const src = readFileSync(fileURLToPath(import.meta.url), 'utf8').split('\n').slice(1, 12).map((l) => l.replace(/^\/\/ ?/, ''));
     console.log(src.join('\n'));
   },
 };
@@ -225,7 +298,7 @@ if (!fn) {
   await commands.help();
   process.exit(1);
 }
-if (!existsSync(join(here, 'node_modules')) && cmd === 'check') {
+if (!existsSync(join(here, 'node_modules')) && (cmd === 'check' || cmd === 'submit')) {
   console.log(c.dim('Tip: run npm install inside labs/ once so check can draw QR codes.'));
 }
 try {

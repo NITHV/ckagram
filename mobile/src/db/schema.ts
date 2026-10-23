@@ -69,6 +69,24 @@ const MIGRATIONS: string[] = [
     PRIMARY KEY (item_id, kind)
   );
   `,
+  // v3: mock exams, taken on the phone or on the laptop (claimed by QR).
+  `
+  CREATE TABLE mock_runs (
+    id       INTEGER PRIMARY KEY AUTOINCREMENT,
+    kind     TEXT NOT NULL,              -- 'phone' | 'laptop'
+    score    INTEGER NOT NULL,           -- 0–100
+    correct  INTEGER NOT NULL,           -- questions (phone) or tasks (laptop) passed
+    total    INTEGER NOT NULL,
+    seconds  INTEGER NOT NULL,
+    passed   INTEGER NOT NULL,
+    xp       INTEGER NOT NULL,
+    nonce    TEXT UNIQUE,                -- laptop claims only
+    detail   TEXT NOT NULL DEFAULT '{}', -- JSON: per-domain results, missed card ids
+    ts       INTEGER NOT NULL,
+    day      TEXT NOT NULL
+  );
+  CREATE INDEX idx_mock_runs_day ON mock_runs(day);
+  `,
 ];
 
 export async function migrate(db: SQLiteDatabase) {

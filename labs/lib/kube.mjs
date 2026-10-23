@@ -78,4 +78,62 @@ export const q = {
     const r = k.try('exec', pod, '-n', ns, '--', ...cmd);
     return r.ok ? r.out : null;
   },
+  /** HTTP GET from inside a Pod (busybox wget). Returns the body or null. */
+  wget(ns, pod, url) {
+    return q.execIn(ns, pod, 'wget', '-qO-', '-T', '4', url);
+  },
+  /** Ready endpoint addresses behind a Service, from its EndpointSlices. */
+  readyEndpoints(ns, svc) {
+    const list = k.json('endpointslices', '-n', ns, '-l', `kubernetes.io/service-name=${svc}`);
+    return (list?.items ?? []).flatMap((s) => (s.endpoints ?? []).filter((e) => e.conditions?.ready !== false).flatMap((e) => e.addresses));
+  },
+  /** `kubectl auth can-i` as someone else: true only for "yes". ns "*" = all namespaces, none = cluster scope. */
+  canI(as, verb, resource, ns) {
+    const r = k.try('auth', 'can-i', verb, resource, `--as=${as}`, ...(ns === '*' ? ['-A'] : ns ? ['-n', ns] : []));
+    return r.out.trim() === 'yes';
+  },
+  nodeIP(name) {
+    return q.node(name)?.status?.addresses?.find((a) => a.type === 'InternalIP')?.address;
+  },
+  defaultStorageClass() {
+    const list = k.json('storageclass');
+    return (list?.items ?? []).find((s) => s.metadata.annotations?.['storageclass.kubernetes.io/is-default-class'] === 'true')?.metadata.name;
+  },
 };
+
+// --- NetworkPolicy evaluation ----------------------------------------------------------------
+// Some CNIs (and kindnet on Docker Desktop's WSL kernel) don't enforce policies, so labs also
+// grade them by reading the rules. Covers same-namespace podSelector peers, which is what the labs use.
+
+function selectorMatches(sel, labels) {
+  if (!sel) return false;
+  const okLabels = Object.entries(sel.matchLabels ?? {}).every(([k2, v]) => labels[k2] === v);
+  const okExpr = (sel.matchExpressions ?? []).every((e) => {
+    const v = labels[e.key];
+    if (e.operator === 'In') return e.values.includes(v);
+    if (e.operator === 'NotIn') return v === undefined || !e.values.includes(v);
+    if (e.operator === 'Exists') return v !== undefined;
+    if (e.operator === 'DoesNotExist') return v === undefined;
+    return false;
+  });
+  return okLabels && okExpr;
+}
+
+const isIngressPolicy = (p) => (p.spec.policyTypes ? p.spec.policyTypes.includes('Ingress') : true);
+
+/** Would the policies in ns let a Pod with fromLabels reach a Pod with toLabels on port? */
+export function policyAllows(policies, toLabels, fromLabels, port) {
+  const selecting = policies.filter((p) => isIngressPolicy(p) && selectorMatches(p.spec.podSelector ?? {}, toLabels));
+  if (selecting.length === 0) return true; // not isolated
+  return selecting.some((p) =>
+    (p.spec.ingress ?? []).some((rule) => {
+      const fromOk = !rule.from?.length || rule.from.some((peer) => !peer.namespaceSelector && !peer.ipBlock && selectorMatches(peer.podSelector, fromLabels));
+      const portOk = !rule.ports?.length || rule.ports.some((pt) => pt.port === undefined || Number(pt.port) === port || typeof pt.port === 'string');
+      return fromOk && portOk;
+    })
+  );
+}
+
+export function policies(ns) {
+  return k.json('networkpolicies', '-n', ns)?.items ?? [];
+}
