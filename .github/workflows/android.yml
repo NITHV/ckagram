@@ -1,0 +1,75 @@
+name: Android APK
+
+on:
+  push:
+    branches: [main]
+    paths: ['mobile/**', '.github/workflows/android.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: mobile
+    env:
+      BUILD_NUMBER: ${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Check card content
+        run: node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/check-content.mts
+
+      - name: Generate native project
+        run: npx expo prebuild --platform android --no-install
+
+      - name: Decode signing key
+        run: echo "${{ secrets.CKAGRAM_KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/release.keystore"
+
+      - name: Build release APK
+        working-directory: mobile/android
+        env:
+          CKAGRAM_KEYSTORE: ${{ runner.temp }}/release.keystore
+          CKAGRAM_KEYSTORE_PASSWORD: ${{ secrets.CKAGRAM_KEYSTORE_PASSWORD }}
+          CKAGRAM_KEY_ALIAS: ${{ secrets.CKAGRAM_KEY_ALIAS }}
+          CKAGRAM_KEY_PASSWORD: ${{ secrets.CKAGRAM_KEY_PASSWORD }}
+        run: ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a --no-daemon
+
+      - name: Rename APK
+        run: mv android/app/build/outputs/apk/release/app-release.apk "$RUNNER_TEMP/ckagram-${BUILD_NUMBER}.apk"
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: CKAgram build ${{ github.run_number }}
+          body: ${{ github.event.head_commit.message }}
+          files: ${{ runner.temp }}/ckagram-${{ github.run_number }}.apk
+          make_latest: true
