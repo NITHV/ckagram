@@ -8,6 +8,7 @@ import { ALL_CARDS, DOMAIN_BY_ID, DOMAINS, type Card } from '@/content';
 import { REELS } from '@/content/reels';
 import { haptic } from '@/lib/haptics';
 import { useProgress } from '@/state/progress';
+import { TopicTile } from '@/ui/TopicTile';
 import { colors, radius } from '@/ui/theme';
 
 function cardText(c: Card) {
@@ -110,14 +111,14 @@ export default function Explore() {
                       <Text style={{ fontSize: 24 }}>{d.emoji}</Text>
                       <Text style={[styles.weight, { color: d.color }]}>{Math.round(d.weight * 100)}%</Text>
                     </View>
-                    <Text style={styles.domainName} numberOfLines={2}>
+                    <Text style={styles.domainName} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.8}>
                       {d.name}
                     </Text>
                     <View style={styles.track}>
                       <View style={[styles.fill, { width: `${Math.max(2, s.mastery * 100)}%`, backgroundColor: d.color }]} />
                     </View>
                     <Text style={styles.domainMeta}>
-                      {s.due} due · {s.fresh} new
+                      {s.due === 0 && s.fresh === 0 && s.opensWeek !== null ? `Opens in week ${s.opensWeek}` : `${s.due} due · ${s.fresh} new`}
                     </Text>
                   </Pressable>
                 );
@@ -151,18 +152,9 @@ export default function Explore() {
 
           <Text style={styles.h2}>Topics</Text>
           <View style={styles.topics}>
-            {stats?.topics.map((t) => {
-              const color = DOMAIN_BY_ID[t.domain].color;
-              return (
-                <Pressable key={`${t.domain}:${t.topic}`} onPress={() => go(t.domain)} style={styles.topic}>
-                  <View style={[StyleSheet.absoluteFill, { backgroundColor: color, opacity: 0.12 + t.mastery * 0.75, borderRadius: radius.sm }]} />
-                  <Text style={styles.topicName}>{t.topic}</Text>
-                  <Text style={styles.topicMeta}>
-                    {t.learned}/{t.total} · {Math.round(t.mastery * 100)}%
-                  </Text>
-                </Pressable>
-              );
-            })}
+            {stats?.topics.map((t) => (
+              <TopicTile key={`${t.domain}:${t.topic}`} topic={t} onPress={() => go(t.domain)} style={styles.topic} />
+            ))}
           </View>
         </ScrollView>
       )}
@@ -173,7 +165,7 @@ export default function Explore() {
 const styles = StyleSheet.create({
   mockAction: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#B04BFF22', flex: 0 },
   screen: { flex: 1, backgroundColor: colors.bg },
-  searchWrap: { flexDirection: 'row', alignItems: 'center', gap: 8, margin: 12, marginBottom: 4, paddingHorizontal: 12, backgroundColor: colors.surface2, borderRadius: radius.md },
+  searchWrap: { flexDirection: 'row', alignItems: 'center', gap: 8, margin: 12, marginBottom: 10, paddingHorizontal: 12, backgroundColor: colors.surface2, borderRadius: radius.md },
   search: { flex: 1, color: colors.text, fontSize: 15, paddingVertical: 10 },
   resultCount: { color: colors.muted, paddingHorizontal: 14, paddingVertical: 8, fontSize: 12 },
   result: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 10 },
@@ -198,7 +190,5 @@ const styles = StyleSheet.create({
   actionTitle: { color: colors.text, fontWeight: '800', fontSize: 14 },
   actionSub: { color: colors.muted, fontSize: 11 },
   topics: { flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
-  topic: { width: '32.6%', aspectRatio: 1, borderRadius: radius.sm, padding: 8, justifyContent: 'flex-end', backgroundColor: colors.surface },
-  topicName: { color: colors.text, fontWeight: '800', fontSize: 13 },
-  topicMeta: { color: colors.text, fontSize: 11, opacity: 0.8 },
+  topic: { width: '32.6%' },
 });

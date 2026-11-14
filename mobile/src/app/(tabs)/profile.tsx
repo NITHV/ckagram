@@ -13,6 +13,7 @@ import { useMarks } from '@/state/marks';
 import { useProgress } from '@/state/progress';
 import { Mark } from '@/ui/Brand';
 import { ProgressRing } from '@/ui/ProgressRing';
+import { TopicTile } from '@/ui/TopicTile';
 import { colors, radius } from '@/ui/theme';
 
 function shiftDate(iso: string, days: number) {
@@ -152,11 +153,7 @@ export default function Profile() {
         {tab === 'topics' && (
           <View style={styles.grid}>
             {stats.topics.map((t) => (
-              <View key={`${t.domain}:${t.topic}`} style={styles.tile}>
-                <View style={[StyleSheet.absoluteFill, { backgroundColor: DOMAIN_BY_ID[t.domain].color, opacity: 0.12 + t.mastery * 0.75 }]} />
-                <Text style={styles.tileText}>{t.topic}</Text>
-                <Text style={styles.tileSub}>{Math.round(t.mastery * 100)}%</Text>
-              </View>
+              <TopicTile key={`${t.domain}:${t.topic}`} topic={t} style={styles.tile} />
             ))}
           </View>
         )}
@@ -254,10 +251,8 @@ const styles = StyleSheet.create({
   tabs: { flexDirection: 'row', marginTop: 18, borderBottomWidth: 1, borderBottomColor: colors.border },
   tab: { flex: 1, alignItems: 'center', paddingVertical: 10 },
   tabOn: { borderBottomWidth: 2, borderBottomColor: colors.text },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 2, marginTop: 2 },
-  tile: { width: '33.1%', aspectRatio: 1, padding: 8, justifyContent: 'flex-end', backgroundColor: colors.surface },
-  tileText: { color: colors.text, fontWeight: '800', fontSize: 13 },
-  tileSub: { color: colors.text, fontSize: 11, opacity: 0.8 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, padding: 12 },
+  tile: { width: '32.6%' },
   practiceSaved: { margin: 14, backgroundColor: colors.accent, borderRadius: radius.md, paddingVertical: 12, alignItems: 'center' },
   practiceSavedText: { color: '#fff', fontWeight: '800' },
   savedRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 10 },

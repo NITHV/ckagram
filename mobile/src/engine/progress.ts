@@ -33,6 +33,8 @@ export interface DomainStats {
   total: number;
   /** 0–1 against the full curriculum. */
   mastery: number;
+  /** Earliest study week that still holds locked cards for this domain, or null if none are locked. */
+  opensWeek: number | null;
 }
 
 export interface TopicStats {
@@ -165,7 +167,7 @@ export async function loadStats(db: SQLiteDatabase, now = new Date()): Promise<S
   for (const s of states.values()) if (s.first_seen >= todayStart) newToday++;
 
   const domains = Object.fromEntries(
-    DOMAINS.map((d) => [d.id, { id: d.id, due: 0, fresh: 0, learned: 0, total: 0, mastery: 0 }])
+    DOMAINS.map((d) => [d.id, { id: d.id, due: 0, fresh: 0, learned: 0, total: 0, mastery: 0, opensWeek: null }])
   ) as Record<DomainId, DomainStats>;
   const topicMap = new Map<string, TopicStats>();
   const readySum: Record<DomainId, number> = { troubleshooting: 0, architecture: 0, networking: 0, workloads: 0, storage: 0 };
@@ -186,6 +188,8 @@ export async function loadStats(db: SQLiteDatabase, now = new Date()): Promise<S
       if (s.due <= nowMs) d.due++;
     } else if (c.week <= unlocked) {
       d.fresh++;
+    } else {
+      d.opensWeek = d.opensWeek === null ? c.week : Math.min(d.opensWeek, c.week);
     }
     topicMap.set(key, t);
   }

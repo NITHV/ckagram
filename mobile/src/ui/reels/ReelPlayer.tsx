@@ -221,7 +221,8 @@ const styles = StyleSheet.create({
   barFill: { height: 2.5, backgroundColor: colors.text },
   topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 14, paddingTop: 10 },
   reelsTitle: { color: colors.text, fontSize: 22, fontWeight: '900' },
-  stage: { flex: 1, paddingBottom: 120, paddingRight: 40 },
+  // Equal side padding keeps frames centred while still clearing the action rail on the right.
+  stage: { flex: 1, paddingBottom: 120, paddingHorizontal: 22 },
   pausedBadge: { position: 'absolute', top: '42%', alignSelf: 'center', backgroundColor: '#0008', borderRadius: 40, padding: 16 },
   quiz: { flex: 1, justifyContent: 'center', paddingHorizontal: 18, paddingRight: 64, paddingBottom: 120, gap: 10 },
   quizTag: { fontWeight: '900', letterSpacing: 1.5, fontSize: 12 },

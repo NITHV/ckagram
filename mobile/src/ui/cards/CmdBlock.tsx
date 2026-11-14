@@ -94,8 +94,8 @@ export function CmdBlock({ card, onAnswer, blind }: { card: CmdCard; onAnswer: (
             <Pressable onPress={() => built.length && remove(built[built.length - 1])} style={styles.secondary}>
               <Text style={styles.secondaryText}>⌫ Undo</Text>
             </Pressable>
-            <Pressable onPress={run} style={[styles.runBtn, built.length === 0 && { opacity: 0.4 }]}>
-              <Text style={styles.runText}>Run ⏎</Text>
+            <Pressable onPress={run} disabled={built.length === 0} style={[styles.runBtn, built.length === 0 && styles.runBtnOff]}>
+              <Text style={[styles.runText, built.length === 0 && styles.runTextOff]}>{built.length === 0 ? 'Tap the words to build it' : 'Run ⏎'}</Text>
             </Pressable>
           </View>
         </>
@@ -135,5 +135,8 @@ const styles = StyleSheet.create({
   secondary: { paddingVertical: 14, paddingHorizontal: 18, borderRadius: radius.md, backgroundColor: colors.surface2 },
   secondaryText: { color: colors.text, fontWeight: '600' },
   runBtn: { flex: 1, paddingVertical: 14, borderRadius: radius.md, backgroundColor: colors.accent, alignItems: 'center' },
+  // Empty command: an outlined hint, so it reads as "not yet" and not as a faded button.
+  runBtnOff: { backgroundColor: 'transparent', borderWidth: 1, borderColor: colors.border, borderStyle: 'dashed' },
   runText: { color: '#fff', fontWeight: '800', fontSize: 16 },
+  runTextOff: { color: colors.muted, fontWeight: '600', fontSize: 14 },
 });

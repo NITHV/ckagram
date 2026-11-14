@@ -133,7 +133,7 @@ export function ReelFrameView({ frame, accent }: { frame: ReelFrame; accent: str
 }
 
 const styles = StyleSheet.create({
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 26 },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 22 },
   emoji: { fontSize: 76, marginBottom: 12 },
   hook: { color: colors.text, fontSize: 32, fontWeight: '900', textAlign: 'center', letterSpacing: -0.5, lineHeight: 38 },
   sub: { fontSize: 18, fontWeight: '800', marginTop: 12, textAlign: 'center' },
@@ -141,7 +141,7 @@ const styles = StyleSheet.create({
   terminal: { backgroundColor: colors.terminal, borderRadius: radius.md, padding: 16, paddingTop: 12, borderWidth: 1, borderColor: '#1F2A3A', minHeight: 120 },
   dots: { flexDirection: 'row', gap: 6, marginBottom: 10 },
   dot: { width: 10, height: 10, borderRadius: 5 },
-  code: { fontFamily: mono, fontSize: 14.5, lineHeight: 22 },
+  code: { fontFamily: mono, fontSize: 15, lineHeight: 23 },
   caption: { fontSize: 16, fontWeight: '800', marginTop: 16, textAlign: 'center' },
   arrow: { color: colors.muted, fontSize: 22, marginVertical: 4 },
   node: { borderWidth: 2, borderRadius: radius.md, paddingVertical: 12, paddingHorizontal: 22, backgroundColor: '#0009' },
