@@ -120,13 +120,16 @@ export function ReelFrameView({ frame, accent }: { frame: ReelFrame; accent: str
       );
     case 'versus':
       return (
-        <View style={[styles.center, { flexDirection: 'row', gap: 12, alignItems: 'stretch' }]}>
-          {[frame.left, frame.right].map((s, i) => (
-            <Animated.View key={s.title} entering={ZoomIn.delay(i * 350).duration(300)} style={[styles.vs, i === 0 ? { borderColor: accent } : { borderColor: colors.gold }]}>
-              <Text style={styles.vsTitle}>{s.title}</Text>
-              <Text style={styles.vsText}>{s.text}</Text>
-            </Animated.View>
-          ))}
+        // The outer view centres the pair on screen; the inner row keeps both cards the same height.
+        <View style={styles.center}>
+          <View style={styles.vsRow}>
+            {[frame.left, frame.right].map((s, i) => (
+              <Animated.View key={s.title} entering={ZoomIn.delay(i * 350).duration(300)} style={[styles.vs, i === 0 ? { borderColor: accent } : { borderColor: colors.gold }]}>
+                <Text style={styles.vsTitle}>{s.title}</Text>
+                <Text style={styles.vsText}>{s.text}</Text>
+              </Animated.View>
+            ))}
+          </View>
         </View>
       );
   }
@@ -150,7 +153,8 @@ const styles = StyleSheet.create({
   listItem: { flexDirection: 'row', alignItems: 'center', gap: 12, alignSelf: 'stretch', marginVertical: 7 },
   bullet: { width: 10, height: 10, borderRadius: 5 },
   listText: { color: colors.text, fontSize: 19, fontWeight: '700', flex: 1 },
-  vs: { flex: 1, borderWidth: 2, borderRadius: radius.lg, padding: 16, justifyContent: 'center', backgroundColor: '#0009', maxHeight: 220 },
+  vsRow: { flexDirection: 'row', gap: 12, alignSelf: 'stretch', alignItems: 'stretch' },
+  vs: { flex: 1, borderWidth: 2, borderRadius: radius.lg, padding: 16, justifyContent: 'center', backgroundColor: '#0009', minHeight: 170 },
   vsTitle: { color: colors.text, fontWeight: '900', fontSize: 19, marginBottom: 8 },
   vsText: { color: '#D9DEEA', fontSize: 16, lineHeight: 22 },
 });
